@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <meta http-equiv='Cache-Control' content='no-cache, no-store, must-revalidate'>
+    <title>SIGN FREE</title>
+    <style>
+        body{background:#0a0a0a;color:#f0f0f0;font-family:system-ui;padding:20px;max-width:800px;margin:auto}
+        .gold{color:#ffd700}
+        .genre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin:20px 0}
+        .genre-card{background:#1a1a1a;border:1px solid #333;border-radius:16px;padding:12px;text-align:center;cursor:pointer}
+        .genre-card.selected{border-color:#ffd700}
+        canvas{background:black;border:2px solid #333;border-radius:24px;width:100%;max-width:400px;aspect-ratio:1/1;display:block;margin:20px auto;cursor:crosshair}
+        input,button{display:block;width:100%;max-width:400px;margin:12px auto;padding:14px;border-radius:60px;border:none;font-size:16px}
+        input{background:#1a1a1a;color:#fff;border:1px solid #333}
+        .btn-primary{background:#ffd700;color:#0a0a0a;font-weight:600;cursor:pointer}
+        #result{background:#111;border:1px solid #333;border-radius:16px;padding:20px;margin-top:24px;white-space:pre-wrap;font-family:monospace;font-size:14px;max-height:500px;overflow-y:auto;display:none}
+        .demo-banner{background:#2a1a1a;border:1px solid #ffd700;border-radius:16px;padding:16px;margin-top:20px;text-align:center;color:#ffd700}
+    </style>
+</head>
+<body>
+    <h1>🧬 SIGN <span class='gold'>FREE</span></h1>
+    <p>Демо-версия. Доступно <span id='demoCount'>3</span> AIID</p>
+    <div class='genre-grid' id='genreGrid'></div>
+    <input type='text' id='ownerName' placeholder='Ваше имя'>
+    <canvas id='signCanvas' width='500' height='500'></canvas>
+    <button class='btn-primary' id='createBtn'>🎨 Создать AIID</button>
+    <div id='result'></div>
+    <div class='demo-banner'>⚡ Демо-версия. Полная версия — <a href='https://sign.space' style='color:#ffd700'>SIGN PAID →</a></div>
+    <script>
+        const genres = ['Спорт','Крипта','Творчество','Образование','Соцсети','Авто','Бизнес','Психология','Фитнес/ЗОЖ','IT/Программирование','Юриспруденция','Кулинария','Игры/Гейминг','Маркетинг','Путешествия','Фото/Видео','Дизайн/UI/UX','Здоровье/Медицина','Дом/Ремонт','Финансы'];
+        let selectedGenre = genres[0];
+        let signaturePoints = [];
+
+        const grid = document.getElementById('genreGrid');
+        genres.forEach(g => {
+            const card = document.createElement('div');
+            card.className = 'genre-card' + (g === selectedGenre ? ' selected' : '');
+            card.textContent = g;
+            card.onclick = () => {
+                document.querySelectorAll('.genre-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedGenre = g;
+            };
+            grid.appendChild(card);
+        });
+
+        const canvas = document.getElementById('signCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 4;
+        let drawing = false;
+
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let cx, cy;
+            if (e.touches) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; e.preventDefault(); } else { cx = e.clientX; cy = e.clientY; }
+            return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
+        }
+
+        function startDraw(e) {
+            drawing = true;
+            const { x, y } = getCoords(e);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 0.5, y + 0.5);
+            ctx.stroke();
+            signaturePoints = [{ x, y, time: Date.now() }];
+            e.preventDefault();
+        }
+
+        function moveDraw(e) {
+            if (!drawing) return;
+            const { x, y } = getCoords(e);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            signaturePoints.push({ x, y, time: Date.now() });
+            e.preventDefault();
+        }
+
+        function endDraw(e) {
+            if (!drawing) return;
+            drawing = false;
+            e.preventDefault();
+            if (signaturePoints.length < 5) alert('Слишком короткий росчерк.');
+        }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', moveDraw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('touchstart', startDraw);
+        canvas.addEventListener('touchmove', moveDraw);
+        canvas.addEventListener('touchend', endDraw);
+
+        document.getElementById('createBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            btn.textContent = 'Генерация...';
+
+            const name = document.getElementById('ownerName').value || 'Агент';
+            if (signaturePoints.length < 5) {
+                alert('Нарисуйте росчерк!');
+                btn.disabled = false;
+                btn.textContent = '🎨 Создать AIID';
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '';
+
+            try {
+                const response = await fetch('/api/generate_free', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        genre: selectedGenre,
+                        specialization: '',
+                        owner_name: name,
+                        points: signaturePoints
+                    })
+                });
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    resultDiv.textContent = data.aiid_content;
+                } else {
+                    alert('Ошибка: ' + data.message);
+                }
+            } catch (e) {
+                alert('Ошибка соединения с сервером.');
+            }
+
+            btn.disabled = false;
+            btn.textContent = '🎨 Создать AIID';
+        });
+    </script>
+</body>
+</html>
