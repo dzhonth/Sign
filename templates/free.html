@@ -1,118 +1,613 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <meta http-equiv='Cache-Control' content='no-cache, no-store, must-revalidate'>
-    <title>SIGN FREE</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGN — Рождение цифрового помощника</title>
     <style>
-        body{background:#0a0a0a;color:#f0f0f0;font-family:system-ui;padding:20px;max-width:800px;margin:auto}
-        .gold{color:#ffd700}
-        .genre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin:20px 0}
-        .genre-card{background:#1a1a1a;border:1px solid #333;border-radius:16px;padding:12px;text-align:center;cursor:pointer}
-        .genre-card.selected{border-color:#ffd700}
-        canvas{background:black;border:2px solid #333;border-radius:24px;width:100%;max-width:400px;aspect-ratio:1/1;display:block;margin:20px auto;cursor:crosshair}
-        input,button{display:block;width:100%;max-width:400px;margin:12px auto;padding:14px;border-radius:60px;border:none;font-size:16px}
-        input{background:#1a1a1a;color:#fff;border:1px solid #333}
-        .btn-primary{background:#ffd700;color:#0a0a0a;font-weight:600;cursor:pointer}
-        #result{background:#111;border:1px solid #333;border-radius:16px;padding:20px;margin-top:24px;white-space:pre-wrap;font-family:monospace;font-size:14px;max-height:500px;overflow-y:auto;display:none}
-        .demo-banner{background:#2a1a1a;border:1px solid #ffd700;border-radius:16px;padding:16px;margin-top:20px;text-align:center;color:#ffd700}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e8e8f0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            background-image: radial-gradient(ellipse at 50% 0%, #1a1a2e 0%, #0a0a0f 70%);
+        }
+        .container {
+            max-width: 1100px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            padding: 30px 0 20px;
+            border-bottom: 1px solid #1e1e2e;
+        }
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: 4px;
+        }
+        .logo span { color: #ffd700; font-weight: 600; }
+        .subtitle {
+            color: #8888aa;
+            margin-top: 8px;
+            font-size: 1rem;
+            letter-spacing: 2px;
+        }
+        .demo-badge {
+            display: inline-block;
+            background: #1a1a2e;
+            border: 1px solid #ffd70044;
+            border-radius: 60px;
+            padding: 6px 20px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #ffd700;
+        }
+        .demo-badge span { font-weight: 700; }
+
+        /* ===== ИНФОРМАЦИОННЫЕ БЛОКИ ===== */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin: 30px 0 20px;
+        }
+        .info-block {
+            background: #12121e;
+            border: 1px solid #2a2a3e;
+            border-radius: 20px;
+            padding: 20px 18px;
+            transition: border-color 0.3s, transform 0.2s;
+        }
+        .info-block:hover {
+            border-color: #ffd70066;
+            transform: translateY(-4px);
+        }
+        .info-block .icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .info-block h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ffd700;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        .info-block p {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #b0b0c8;
+            margin: 0;
+        }
+        .info-block p strong {
+            color: #e8e8f0;
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #8888aa;
+            margin: 30px 0 16px;
+        }
+        .genre-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .genre-card {
+            background: #12121e;
+            border: 1px solid #2a2a3e;
+            border-radius: 14px;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            color: #a0a0c0;
+            user-select: none;
+            position: relative;
+        }
+        .genre-card:hover {
+            background: #1a1a2e;
+            border-color: #4a4a6e;
+            transform: translateY(-2px);
+        }
+        .genre-card.selected {
+            background: #1a1a2e;
+            border-color: #ffd700;
+            color: #ffd700;
+            box-shadow: 0 0 20px #ffd70022;
+        }
+        .genre-card .soon-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #2a1a1a;
+            border: 1px solid #ff444466;
+            border-radius: 20px;
+            padding: 1px 8px;
+            font-size: 0.55rem;
+            color: #ff6666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .genre-card.soon {
+            opacity: 0.6;
+            cursor: default;
+        }
+        .genre-card.soon:hover {
+            transform: none;
+            border-color: #2a2a3e;
+        }
+        .genre-card.soon.selected {
+            border-color: #ff444466;
+            color: #ff6666;
+            box-shadow: 0 0 20px #ff444422;
+        }
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        #signCanvas {
+            background: #0d0d18;
+            border: 2px solid #2a2a3e;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 420px;
+            aspect-ratio: 1/1;
+            cursor: crosshair;
+            transition: border-color 0.3s;
+            touch-action: none;
+        }
+        #signCanvas:hover {
+            border-color: #4a4a6e;
+        }
+        .canvas-hint {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #555577;
+            margin-top: -6px;
+            margin-bottom: 16px;
+        }
+        .input-group {
+            max-width: 420px;
+            margin: 0 auto 16px;
+        }
+        #ownerName {
+            width: 100%;
+            padding: 14px 20px;
+            border-radius: 60px;
+            border: 1px solid #2a2a3e;
+            background: #12121e;
+            color: #e8e8f0;
+            font-size: 1rem;
+            outline: none;
+            transition: border 0.3s;
+        }
+        #ownerName:focus {
+            border-color: #ffd700;
+        }
+        #ownerName::placeholder {
+            color: #555577;
+        }
+        .btn-primary {
+            display: block;
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto 12px;
+            padding: 16px;
+            border-radius: 60px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: #ffd700;
+            color: #0a0a0f;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            letter-spacing: 1px;
+        }
+        .btn-primary:hover {
+            background: #ffe44d;
+            transform: scale(1.02);
+            box-shadow: 0 0 40px #ffd70033;
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        #result {
+            background: #0d0d18;
+            border: 1px solid #2a2a3e;
+            border-radius: 20px;
+            padding: 24px;
+            margin-top: 24px;
+            display: none;
+            max-height: 550px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        #result::-webkit-scrollbar {
+            width: 6px;
+        }
+        #result::-webkit-scrollbar-track {
+            background: #12121e;
+            border-radius: 10px;
+        }
+        #result::-webkit-scrollbar-thumb {
+            background: #ffd70066;
+            border-radius: 10px;
+        }
+        .result-label {
+            color: #ffd700;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .result-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #2a2a3e;
+        }
+        .btn-copy {
+            background: #2a2a3e;
+            border: 1px solid #4a4a6e;
+            color: #e8e8f0;
+            padding: 6px 16px;
+            border-radius: 60px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-copy:hover {
+            background: #3a3a5e;
+            border-color: #ffd700;
+            color: #ffd700;
+        }
+        .btn-copy.copied {
+            background: #1a3a1a;
+            border-color: #4a8a4a;
+            color: #8aff8a;
+        }
+        .footer {
+            text-align: center;
+            padding: 30px 0 10px;
+            border-top: 1px solid #1a1a2e;
+            margin-top: 20px;
+            color: #444466;
+            font-size: 0.8rem;
+        }
+        .footer a {
+            color: #ffd70088;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            color: #ffd700;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #666688;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .legend-dot.ready {
+            background: #ffd700;
+        }
+        .legend-dot.soon {
+            background: #ff444466;
+        }
+        @media (max-width: 600px) {
+            .genre-grid {
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            }
+            .genre-card {
+                font-size: 0.75rem;
+                padding: 8px 4px;
+            }
+            .logo {
+                font-size: 1.8rem;
+            }
+            .result-actions {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>🧬 SIGN <span class='gold'>FREE</span></h1>
-    <p>Демо-версия. Доступно <span id='demoCount'>3</span> AIID</p>
-    <div class='genre-grid' id='genreGrid'></div>
-    <input type='text' id='ownerName' placeholder='Ваше имя'>
-    <canvas id='signCanvas' width='500' height='500'></canvas>
-    <button class='btn-primary' id='createBtn'>🎨 Создать AIID</button>
-    <div id='result'></div>
-    <div class='demo-banner'>⚡ Демо-версия. Полная версия — <a href='https://sign.space' style='color:#ffd700'>SIGN PAID →</a></div>
-    <script>
-        const genres = ['Спорт','Крипта','Творчество','Образование','Соцсети','Авто','Бизнес','Психология','Фитнес/ЗОЖ','IT/Программирование','Юриспруденция','Кулинария','Игры/Гейминг','Маркетинг','Путешествия','Фото/Видео','Дизайн/UI/UX','Здоровье/Медицина','Дом/Ремонт','Финансы'];
-        let selectedGenre = genres[0];
+<div class="container">
+
+    <!-- ===== HEADER ===== -->
+    <div class="header">
+        <div class="logo">SIGN <span>FREE</span></div>
+        <div class="subtitle">Цифровой помощник из росчерка</div>
+        <div class="demo-badge">⚡ Демо · Осталось <span id="demoCount">3</span> AIID</div>
+    </div>
+
+    <!-- ===== ИНФОРМАЦИОННЫЕ БЛОКИ ===== -->
+    <div class="info-grid">
+        <div class="info-block">
+            <span class="icon">🧠</span>
+            <h3>Что такое цифровой помощник?</h3>
+            <p>Это ИИ, который понимает твой стиль, адаптируется под задачи и работает 24/7. Он не просто отвечает — он решает.</p>
+        </div>
+        <div class="info-block">
+            <span class="icon">🧬</span>
+            <h3>Что такое AIID?</h3>
+            <p>AIID (Artificial Intelligence Identity Document) — это цифровой паспорт твоего агента. В нём — ДНК (7 критериев), характер, задачи, сильные и слабые стороны, готовый промпт для нейросетей.</p>
+        </div>
+        <div class="info-block">
+            <span class="icon">📖</span>
+            <h3>Как это работает?</h3>
+            <p><strong>1.</strong> Выбери жанр → <strong>2.</strong> Нарисуй росчерк / тэг / граффити → <strong>3.</strong> Подтверди оплату → <strong>4.</strong> Получи AIID → <strong>5.</strong> Скопируй промпт в нейросеть → <strong>6.</strong> Начни общение.</p>
+        </div>
+        <div class="info-block">
+            <span class="icon">📐</span>
+            <h3>Откуда берётся ДНК?</h3>
+            <p>Твой росчерк — уникален. Мы анализируем 7 признаков: скорость, размах, углы, плавность, нажатие, симметрию, длину. Они превращаются в 7 критериев ДНК: <strong>риск, скорость, креатив, точность, эмпатия, автономность, вербальность</strong>. Каждый росчерк — характер твоего будущего цифрового помощника.</p>
+        </div>
+    </div>
+
+    <!-- ===== ВЫБОР ЖАНРА ===== -->
+    <div class="section-title">Выберите жанр</div>
+    <div class="legend">
+        <span class="legend-item"><span class="legend-dot ready"></span> Готово (10)</span>
+        <span class="legend-item"><span class="legend-dot soon"></span> В разработке (25)</span>
+    </div>
+    <div class="genre-grid" id="genreGrid"></div>
+
+    <!-- ===== ИМЯ И РОСЧЕРК ===== -->
+    <div class="input-group">
+        <input type="text" id="ownerName" placeholder="Ваше имя (необязательно)">
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="signCanvas" width="500" height="500"></canvas>
+    </div>
+    <div class="canvas-hint">✍️ Нарисуйте росчерк — это будет ДНК вашего AIID</div>
+
+    <button class="btn-primary" id="createBtn">✨ Создать AIID</button>
+
+    <!-- ===== РЕЗУЛЬТАТ ===== -->
+    <div id="result">
+        <span class="result-label">🧬 AIID-паспорт</span>
+        <div id="resultContent"></div>
+        <div class="result-actions">
+            <button class="btn-copy" id="copyBtn">📋 Копировать</button>
+        </div>
+    </div>
+
+    <!-- ===== ФУТЕР ===== -->
+    <div class="footer">
+        SIGN · <a href="https://sign.space" target="_blank">Полная версия →</a>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // === 10 готовых жанров ===
+        const READY_GENRES = [
+            'Спорт', 'Крипта', 'Творчество', 'Бизнес',
+            'Дом / Ремонт', 'Образование', 'Соцсети',
+            'Психология', 'Путешествия', 'Фото / Видео'
+        ];
+
+        // === 25 жанров в разработке ===
+        const SOON_GENRES = [
+            'Авто', 'IT / Программирование', 'Юриспруденция',
+            'Финансы', 'Маркетинг', 'Дизайн / UI/UX',
+            'Здоровье / Медицина', 'Кулинария', 'Игры / Гейминг',
+            'Фитнес / ЗОЖ', 'Языки / Лингвистика', 'Наука / Исследования',
+            'HR / Карьера', 'Психическое здоровье', 'Недвижимость',
+            'Логистика / Снабжение', 'Ивенты / Мероприятия',
+            'Мода / Стиль', 'Экология / Устойчивое развитие',
+            'Автоматизация бизнеса', 'Крипто-юриспруденция',
+            'Информационная безопасность', 'Робототехника / DIY',
+            'Искусственный интеллект', 'Кино / Видеопродакшн'
+        ];
+
+        const ALL_GENRES = [...READY_GENRES, ...SOON_GENRES];
+        let selectedGenre = READY_GENRES[0];
         let signaturePoints = [];
+        let isDrawing = false;
 
         const grid = document.getElementById('genreGrid');
-        genres.forEach(g => {
+        const canvas = document.getElementById('signCanvas');
+        const ctx = canvas.getContext('2d');
+        const ownerInput = document.getElementById('ownerName');
+        const createBtn = document.getElementById('createBtn');
+        const resultDiv = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        const demoCountSpan = document.getElementById('demoCount');
+        const copyBtn = document.getElementById('copyBtn');
+
+        // Build genre grid
+        ALL_GENRES.forEach(g => {
+            const isReady = READY_GENRES.includes(g);
             const card = document.createElement('div');
-            card.className = 'genre-card' + (g === selectedGenre ? ' selected' : '');
-            card.textContent = g;
-            card.onclick = () => {
+            card.className = 'genre-card';
+            if (!isReady) card.classList.add('soon');
+            if (g === selectedGenre && isReady) card.classList.add('selected');
+            card.dataset.genre = g;
+            card.dataset.ready = isReady ? 'true' : 'false';
+
+            card.innerHTML = g + (isReady ? '' : '<span class="soon-badge">Soon</span>');
+
+            card.addEventListener('click', function() {
+                const isReadyGenre = this.dataset.ready === 'true';
+                if (!isReadyGenre) {
+                    alert('🎯 Жанр "' + g + '" в разработке. Выберите один из готовых жанров.');
+                    return;
+                }
                 document.querySelectorAll('.genre-card').forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                selectedGenre = g;
-            };
+                this.classList.add('selected');
+                selectedGenre = this.dataset.genre;
+            });
+
             grid.appendChild(card);
         });
 
-        const canvas = document.getElementById('signCanvas');
-        const ctx = canvas.getContext('2d');
+        // Canvas setup
         ctx.strokeStyle = '#ffd700';
         ctx.lineWidth = 4;
-        let drawing = false;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = '#ffd70044';
+        ctx.shadowBlur = 8;
 
-        function getCoords(e) {
+        function getCanvasCoords(e) {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            let cx, cy;
-            if (e.touches) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; e.preventDefault(); } else { cx = e.clientX; cy = e.clientY; }
-            return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+                e.preventDefault();
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
         }
 
-        function startDraw(e) {
-            drawing = true;
-            const { x, y } = getCoords(e);
+        function startDrawing(e) {
+            e.preventDefault();
+            isDrawing = true;
+            const { x, y } = getCanvasCoords(e);
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x + 0.5, y + 0.5);
             ctx.stroke();
             signaturePoints = [{ x, y, time: Date.now() }];
-            e.preventDefault();
         }
 
-        function moveDraw(e) {
-            if (!drawing) return;
-            const { x, y } = getCoords(e);
+        function drawMove(e) {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const { x, y } = getCanvasCoords(e);
             ctx.lineTo(x, y);
             ctx.stroke();
             ctx.beginPath();
             ctx.moveTo(x, y);
             signaturePoints.push({ x, y, time: Date.now() });
-            e.preventDefault();
         }
 
-        function endDraw(e) {
-            if (!drawing) return;
-            drawing = false;
+        function endDrawing(e) {
             e.preventDefault();
-            if (signaturePoints.length < 5) alert('Слишком короткий росчерк.');
+            if (isDrawing) {
+                isDrawing = false;
+                if (signaturePoints.length < 5) {
+                    alert('✍️ Росчерк слишком короткий. Нарисуйте более длинную линию.');
+                }
+            }
         }
 
-        canvas.addEventListener('mousedown', startDraw);
-        canvas.addEventListener('mousemove', moveDraw);
-        canvas.addEventListener('mouseup', endDraw);
-        canvas.addEventListener('touchstart', startDraw);
-        canvas.addEventListener('touchmove', moveDraw);
-        canvas.addEventListener('touchend', endDraw);
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', drawMove);
+        canvas.addEventListener('mouseup', endDrawing);
+        canvas.addEventListener('mouseleave', endDrawing);
 
-        document.getElementById('createBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('createBtn');
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', drawMove, { passive: false });
+        canvas.addEventListener('touchend', endDrawing, { passive: false });
+
+        canvas.addEventListener('dblclick', function() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            signaturePoints = [];
+            ctx.shadowColor = '#ffd70044';
+            ctx.shadowBlur = 8;
+        });
+
+        // === Копирование ===
+        copyBtn.addEventListener('click', async function() {
+            const text = resultContent.textContent;
+            if (!text || text.startsWith('⏳') || text.startsWith('❌')) {
+                alert('Нет текста для копирования.');
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(text);
+                this.classList.add('copied');
+                this.textContent = '✅ Скопировано!';
+                setTimeout(() => {
+                    this.classList.remove('copied');
+                    this.textContent = '📋 Копировать';
+                }, 3000);
+            } catch (err) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                this.textContent = '✅ Скопировано!';
+                setTimeout(() => {
+                    this.textContent = '📋 Копировать';
+                }, 3000);
+            }
+        });
+
+        // === Генерация AIID ===
+        createBtn.addEventListener('click', async function() {
+            const btn = this;
             btn.disabled = true;
-            btn.textContent = 'Генерация...';
+            btn.textContent = '⏳ Генерация...';
 
-            const name = document.getElementById('ownerName').value || 'Агент';
+            const name = ownerInput.value.trim() || 'Агент';
+
             if (signaturePoints.length < 5) {
-                alert('Нарисуйте росчерк!');
+                alert('✍️ Сначала нарисуйте росчерк на поле выше.');
                 btn.disabled = false;
-                btn.textContent = '🎨 Создать AIID';
+                btn.textContent = '✨ Создать AIID';
                 return;
             }
 
-            const resultDiv = document.getElementById('result');
             resultDiv.style.display = 'block';
-            resultDiv.textContent = '';
+            resultContent.textContent = '⏳ Обработка росчерка...';
+            copyBtn.style.display = 'none';
 
             try {
                 const response = await fetch('/api/generate_free', {
@@ -125,19 +620,31 @@
                         points: signaturePoints
                     })
                 });
+
                 const data = await response.json();
+
                 if (data.status === 'ok') {
-                    resultDiv.textContent = data.aiid_content;
+                    resultContent.textContent = data.aiid_content;
+                    copyBtn.style.display = 'flex';
+                    if (data.demo_remaining !== undefined) {
+                        demoCountSpan.textContent = data.demo_remaining;
+                    }
                 } else {
-                    alert('Ошибка: ' + data.message);
+                    resultContent.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная ошибка');
+                    copyBtn.style.display = 'none';
                 }
-            } catch (e) {
-                alert('Ошибка соединения с сервером.');
+            } catch (err) {
+                resultContent.textContent = '❌ Не удалось соединиться с сервером. Проверьте интернет.';
+                copyBtn.style.display = 'none';
+                console.error('Fetch error:', err);
             }
 
             btn.disabled = false;
-            btn.textContent = '🎨 Создать AIID';
+            btn.textContent = '✨ Создать AIID';
         });
-    </script>
+
+        console.log('✅ SIGN Free — 35 жанров + информационные блоки');
+    })();
+</script>
 </body>
 </html>
