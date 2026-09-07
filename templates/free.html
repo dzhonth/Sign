@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGN — Рождение цифрового помощника</title>
+    <title>SIGN AI — Космическая кузница агентов</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -17,7 +17,7 @@
             background-image: radial-gradient(ellipse at 50% 0%, #1a1a2e 0%, #0a0a0f 70%);
         }
         .container {
-            max-width: 1100px;
+            max-width: 1200px;
             width: 100%;
         }
         .header {
@@ -49,7 +49,6 @@
         }
         .demo-badge span { font-weight: 700; }
 
-        /* ===== ИНФОРМАЦИОННЫЕ БЛОКИ ===== */
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -85,9 +84,7 @@
             color: #b0b0c8;
             margin: 0;
         }
-        .info-block p strong {
-            color: #e8e8f0;
-        }
+        .info-block p strong { color: #e8e8f0; }
 
         .section-title {
             font-size: 0.9rem;
@@ -98,22 +95,24 @@
         }
         .genre-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
             margin-bottom: 20px;
         }
         .genre-card {
             background: #12121e;
             border: 1px solid #2a2a3e;
-            border-radius: 14px;
-            padding: 12px 8px;
+            border-radius: 12px;
+            padding: 8px 4px;
             text-align: center;
-            font-size: 0.85rem;
+            font-size: 0.7rem;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.25s ease;
             color: #a0a0c0;
             user-select: none;
-            position: relative;
+            word-break: break-word;
+            line-height: 1.2;
         }
         .genre-card:hover {
             background: #1a1a2e;
@@ -125,32 +124,6 @@
             border-color: #ffd700;
             color: #ffd700;
             box-shadow: 0 0 20px #ffd70022;
-        }
-        .genre-card .soon-badge {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            background: #2a1a1a;
-            border: 1px solid #ff444466;
-            border-radius: 20px;
-            padding: 1px 8px;
-            font-size: 0.55rem;
-            color: #ff6666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .genre-card.soon {
-            opacity: 0.6;
-            cursor: default;
-        }
-        .genre-card.soon:hover {
-            transform: none;
-            border-color: #2a2a3e;
-        }
-        .genre-card.soon.selected {
-            border-color: #ff444466;
-            color: #ff6666;
-            box-shadow: 0 0 20px #ff444422;
         }
         .canvas-wrapper {
             display: flex;
@@ -168,9 +141,7 @@
             transition: border-color 0.3s;
             touch-action: none;
         }
-        #signCanvas:hover {
-            border-color: #4a4a6e;
-        }
+        #signCanvas:hover { border-color: #4a4a6e; }
         .canvas-hint {
             text-align: center;
             font-size: 0.8rem;
@@ -193,12 +164,8 @@
             outline: none;
             transition: border 0.3s;
         }
-        #ownerName:focus {
-            border-color: #ffd700;
-        }
-        #ownerName::placeholder {
-            color: #555577;
-        }
+        #ownerName:focus { border-color: #ffd700; }
+        #ownerName::placeholder { color: #555577; }
         .btn-primary {
             display: block;
             width: 100%;
@@ -226,41 +193,41 @@
             transform: none;
             box-shadow: none;
         }
+
+        /* ===== СТИЛИ ДЛЯ РЕЗУЛЬТАТА (МАТРИЦА) ===== */
         #result {
-            background: #0d0d18;
-            border: 1px solid #2a2a3e;
-            border-radius: 20px;
-            padding: 24px;
-            margin-top: 24px;
-            display: none;
-            max-height: 550px;
-            overflow-y: auto;
+            background: #000;
+            color: #fff;
             font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            line-height: 1.6;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #0f0;
+            box-shadow: 0 0 20px rgba(0,255,0,0.2);
             white-space: pre-wrap;
             word-break: break-word;
+            max-height: 600px;
+            overflow-y: auto;
+            display: none;
+            margin-top: 24px;
         }
-        #result::-webkit-scrollbar {
-            width: 6px;
+        #result .red {
+            color: #ff0000;
         }
-        #result::-webkit-scrollbar-track {
-            background: #12121e;
-            border-radius: 10px;
+        #result .white {
+            color: #ffffff;
         }
-        #result::-webkit-scrollbar-thumb {
-            background: #ffd70066;
-            border-radius: 10px;
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: #0f0;
+            animation: blink 0.8s step-end infinite;
+            vertical-align: text-bottom;
         }
-        .result-label {
-            color: #ffd700;
-            font-weight: 600;
-            margin-bottom: 12px;
-            display: block;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
+        @keyframes blink {
+            50% { opacity: 0; }
         }
+
         .result-actions {
             display: flex;
             gap: 10px;
@@ -292,6 +259,7 @@
             border-color: #4a8a4a;
             color: #8aff8a;
         }
+
         .footer {
             text-align: center;
             padding: 30px 0 10px;
@@ -304,9 +272,7 @@
             color: #ffd70088;
             text-decoration: none;
         }
-        .footer a:hover {
-            color: #ffd700;
-        }
+        .footer a:hover { color: #ffd700; }
         .legend {
             display: flex;
             gap: 20px;
@@ -325,45 +291,37 @@
             height: 10px;
             border-radius: 50%;
             display: inline-block;
-        }
-        .legend-dot.ready {
             background: #ffd700;
         }
-        .legend-dot.soon {
-            background: #ff444466;
+        .limit-message {
+            display: none;
+            margin-top: 20px;
+            padding: 16px;
+            background: #2a1a1a;
+            border: 1px solid #ff444466;
+            border-radius: 16px;
+            text-align: center;
         }
+        .limit-message a { color: #ffd700; }
         @media (max-width: 600px) {
-            .genre-grid {
-                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-            }
-            .genre-card {
-                font-size: 0.75rem;
-                padding: 8px 4px;
-            }
-            .logo {
-                font-size: 1.8rem;
-            }
-            .result-actions {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            .info-grid {
-                grid-template-columns: 1fr;
-            }
+            .genre-grid { grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); }
+            .genre-card { font-size: 0.6rem; padding: 6px 2px; }
+            .logo { font-size: 1.8rem; }
+            .result-actions { flex-wrap: wrap; justify-content: center; }
+            .info-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 <div class="container">
 
-    <!-- ===== HEADER ===== -->
     <div class="header">
-        <div class="logo">SIGN <span>FREE</span></div>
-        <div class="subtitle">Цифровой помощник из росчерка</div>
-        <div class="demo-badge">⚡ Демо · Осталось <span id="demoCount">3</span> AIID</div>
+        <div class="logo">SIGN <span>AI</span></div>
+        <div class="subtitle">Космическая кузница агентов искусственного интеллекта</div>
+        <div class="demo-badge">🚀 Сгенерируй своего цифрового помощника здесь и сейчас</div>
+        <div class="demo-badge" style="margin-top:8px;">⚡ Осталось <span id="demoCount">10</span> бесплатных генераций</div>
     </div>
 
-    <!-- ===== ИНФОРМАЦИОННЫЕ БЛОКИ ===== -->
     <div class="info-grid">
         <div class="info-block">
             <span class="icon">🧠</span>
@@ -373,80 +331,80 @@
         <div class="info-block">
             <span class="icon">🧬</span>
             <h3>Что такое AIID?</h3>
-            <p>AIID (Artificial Intelligence Identity Document) — это цифровой паспорт твоего агента. В нём — ДНК (7 критериев), характер, задачи, сильные и слабые стороны, готовый промпт для нейросетей.</p>
+            <p>AIID (Artificial Intelligence Identity Document) — цифровой паспорт твоего агента: ДНК, характер, задачи, промпт.</p>
         </div>
         <div class="info-block">
             <span class="icon">📖</span>
             <h3>Как это работает?</h3>
-            <p><strong>1.</strong> Выбери жанр → <strong>2.</strong> Нарисуй росчерк / тэг / граффити → <strong>3.</strong> Подтверди оплату → <strong>4.</strong> Получи AIID → <strong>5.</strong> Скопируй промпт в нейросеть → <strong>6.</strong> Начни общение.</p>
+            <p><strong>Выбери жанр</strong> → <strong>нарисуй росчерк</strong> → <strong>получи AIID</strong> → <strong>скопируй промпт</strong> в приложение нейросетей → <strong>начни общение</strong>.</p>
         </div>
         <div class="info-block">
             <span class="icon">📐</span>
             <h3>Откуда берётся ДНК?</h3>
-            <p>Твой росчерк — уникален. Мы анализируем 7 признаков: скорость, размах, углы, плавность, нажатие, симметрию, длину. Они превращаются в 7 критериев ДНК: <strong>риск, скорость, креатив, точность, эмпатия, автономность, вербальность</strong>. Каждый росчерк — характер твоего будущего цифрового помощника.</p>
+            <p>Анализируем 7 признаков росчерка → 7 критериев ДНК: <strong>риск, скорость, креатив, точность, эмпатия, автономность, вербальность</strong>. Каждая деталь росчерка — характер твоего будущего агента.</p>
         </div>
     </div>
 
-    <!-- ===== ВЫБОР ЖАНРА ===== -->
-    <div class="section-title">Выберите жанр</div>
+    <div class="section-title">Выбери жанр (все 57 активны)</div>
     <div class="legend">
-        <span class="legend-item"><span class="legend-dot ready"></span> Готово (10)</span>
-        <span class="legend-item"><span class="legend-dot soon"></span> В разработке (25)</span>
+        <span class="legend-item"><span class="legend-dot"></span> 57 жанров</span>
     </div>
     <div class="genre-grid" id="genreGrid"></div>
 
-    <!-- ===== ИМЯ И РОСЧЕРК ===== -->
     <div class="input-group">
-        <input type="text" id="ownerName" placeholder="Ваше имя (необязательно)">
+        <input type="text" id="ownerName" placeholder="Введите ваше имя">
     </div>
 
     <div class="canvas-wrapper">
         <canvas id="signCanvas" width="500" height="500"></canvas>
     </div>
-    <div class="canvas-hint">✍️ Нарисуйте росчерк — это будет ДНК вашего AIID</div>
+    <div class="canvas-hint">✍️ Нарисуйте росчерк — это будет ДНК вашего цифрового помощника</div>
 
     <button class="btn-primary" id="createBtn">✨ Создать AIID</button>
 
-    <!-- ===== РЕЗУЛЬТАТ ===== -->
+    <!-- Результат с матричным стилем -->
     <div id="result">
-        <span class="result-label">🧬 AIID-паспорт</span>
         <div id="resultContent"></div>
         <div class="result-actions">
             <button class="btn-copy" id="copyBtn">📋 Копировать</button>
         </div>
     </div>
 
-    <!-- ===== ФУТЕР ===== -->
+    <div class="limit-message" id="limitMessage">
+        <p style="color:#ff6666;">⚠️ Вы использовали все бесплатные генерации.</p>
+        <p style="color:#8888aa; margin-top:8px;">Перейдите на <a href="https://signai.space">платную версию</a> для неограниченного доступа и полного промпта (≈10 предложений).</p>
+    </div>
+
     <div class="footer">
-        SIGN · <a href="https://sign.space" target="_blank">Полная версия →</a>
+        SIGN · <a href="https://signai.space" target="_blank">Полная версия</a> · <a href="https://t.me/xPandify" target="_blank">Вселенная Эйдос</a>
     </div>
 </div>
 
 <script>
     (function() {
-        // === 10 готовых жанров ===
-        const READY_GENRES = [
-            'Спорт', 'Крипта', 'Творчество', 'Бизнес',
-            'Дом / Ремонт', 'Образование', 'Соцсети',
-            'Психология', 'Путешествия', 'Фото / Видео'
+        // ===== ЖАНРЫ И ОГОНЬКИ =====
+        const HOT_GENRES = [
+            'Крипта', 'ИИ', 'Бизнес', 'Коучинг',
+            'Финансы', 'Ивенты', 'Недвижимость',
+            'Стартапы', 'Инвестиции', 'Личный бренд'
         ];
 
-        // === 25 жанров в разработке ===
-        const SOON_GENRES = [
-            'Авто', 'IT / Программирование', 'Юриспруденция',
-            'Финансы', 'Маркетинг', 'Дизайн / UI/UX',
-            'Здоровье / Медицина', 'Кулинария', 'Игры / Гейминг',
-            'Фитнес / ЗОЖ', 'Языки / Лингвистика', 'Наука / Исследования',
-            'HR / Карьера', 'Психическое здоровье', 'Недвижимость',
-            'Логистика / Снабжение', 'Ивенты / Мероприятия',
-            'Мода / Стиль', 'Экология / Устойчивое развитие',
-            'Автоматизация бизнеса', 'Крипто-юриспруденция',
-            'Информационная безопасность', 'Робототехника / DIY',
-            'Искусственный интеллект', 'Кино / Видеопродакшн'
+        const ALL_GENRES = [
+            'Спорт', 'Крипта', 'Творчество', 'Бизнес', 'Дом / Ремонт',
+            'Образование', 'Соцсети', 'Психология', 'Путешествия', 'Фото / Видео',
+            'Авто', 'IT / Програм.', 'Юриспруденция', 'Финансы', 'Маркетинг',
+            'Дизайн / UI', 'Здоровье', 'Кулинария', 'Игры', 'Фитнес / ЗОЖ',
+            'Языки', 'Наука', 'HR / Карьера', 'Психика', 'Недвижимость',
+            'Логистика', 'Ивенты', 'Мода / Стиль', 'Экология', 'Автоматизация',
+            'Крипто-юрид.', 'Инфобезопасность', 'Робототехника', 'ИИ', 'Кино',
+            'Астрономия', 'История', 'Философия', 'Инженерия', 'Кванты',
+            'Биотех', 'Семья', 'Спортмедицина', 'Сон / Биоритмы',
+            'Поэзия', 'Театр', 'Анимация', 'Коучинг', 'ESG', 'Псих.личности',
+            'Стартапы', 'Инвестиции', 'Личный бренд',
+            'Нетворкинг', 'Карьерный рост', 'Удалённая работа', 'Продуктивность'
         ];
 
-        const ALL_GENRES = [...READY_GENRES, ...SOON_GENRES];
-        let selectedGenre = READY_GENRES[0];
+        let selectedGenre = ALL_GENRES[0];
         let signaturePoints = [];
         let isDrawing = false;
 
@@ -459,25 +417,19 @@
         const resultContent = document.getElementById('resultContent');
         const demoCountSpan = document.getElementById('demoCount');
         const copyBtn = document.getElementById('copyBtn');
+        const limitMessage = document.getElementById('limitMessage');
 
-        // Build genre grid
+        // Отрисовка жанров
         ALL_GENRES.forEach(g => {
-            const isReady = READY_GENRES.includes(g);
             const card = document.createElement('div');
             card.className = 'genre-card';
-            if (!isReady) card.classList.add('soon');
-            if (g === selectedGenre && isReady) card.classList.add('selected');
+            if (g === selectedGenre) card.classList.add('selected');
             card.dataset.genre = g;
-            card.dataset.ready = isReady ? 'true' : 'false';
 
-            card.innerHTML = g + (isReady ? '' : '<span class="soon-badge">Soon</span>');
+            const isHot = HOT_GENRES.includes(g);
+            card.innerHTML = g + (isHot ? ' <span style="color:#ff6b00; font-size:0.9rem;">🔥</span>' : '');
 
             card.addEventListener('click', function() {
-                const isReadyGenre = this.dataset.ready === 'true';
-                if (!isReadyGenre) {
-                    alert('🎯 Жанр "' + g + '" в разработке. Выберите один из готовых жанров.');
-                    return;
-                }
                 document.querySelectorAll('.genre-card').forEach(c => c.classList.remove('selected'));
                 this.classList.add('selected');
                 selectedGenre = this.dataset.genre;
@@ -486,7 +438,7 @@
             grid.appendChild(card);
         });
 
-        // Canvas setup
+        // Canvas настройки
         ctx.strokeStyle = '#ffd700';
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
@@ -507,10 +459,7 @@
                 clientX = e.clientX;
                 clientY = e.clientY;
             }
-            return {
-                x: (clientX - rect.left) * scaleX,
-                y: (clientY - rect.top) * scaleY
-            };
+            return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
         }
 
         function startDrawing(e) {
@@ -549,7 +498,6 @@
         canvas.addEventListener('mousemove', drawMove);
         canvas.addEventListener('mouseup', endDrawing);
         canvas.addEventListener('mouseleave', endDrawing);
-
         canvas.addEventListener('touchstart', startDrawing, { passive: false });
         canvas.addEventListener('touchmove', drawMove, { passive: false });
         canvas.addEventListener('touchend', endDrawing, { passive: false });
@@ -561,7 +509,7 @@
             ctx.shadowBlur = 8;
         });
 
-        // === Копирование ===
+        // ===== КНОПКА КОПИРОВАНИЯ =====
         copyBtn.addEventListener('click', async function() {
             const text = resultContent.textContent;
             if (!text || text.startsWith('⏳') || text.startsWith('❌')) {
@@ -590,26 +538,28 @@
             }
         });
 
-        // === Генерация AIID ===
+        // ===== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ С ЭФФЕКТОМ ПЕЧАТИ =====
         createBtn.addEventListener('click', async function() {
             const btn = this;
             btn.disabled = true;
             btn.textContent = '⏳ Генерация...';
 
             const name = ownerInput.value.trim() || 'Агент';
-
             if (signaturePoints.length < 5) {
-                alert('✍️ Сначала нарисуйте росчерк на поле выше.');
+                alert('✍️ Сначала нарисуйте росчерк.');
                 btn.disabled = false;
                 btn.textContent = '✨ Создать AIID';
                 return;
             }
 
+            // Показываем блок результата, очищаем и скрываем кнопку копирования
             resultDiv.style.display = 'block';
-            resultContent.textContent = '⏳ Обработка росчерка...';
+            resultContent.innerHTML = '';
             copyBtn.style.display = 'none';
+            limitMessage.style.display = 'none';
 
             try {
+                // 1. Получаем полный AIID (обычный запрос)
                 const response = await fetch('/api/generate_free', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -624,26 +574,80 @@
                 const data = await response.json();
 
                 if (data.status === 'ok') {
-                    resultContent.textContent = data.aiid_content;
+                    const fullText = data.aiid_content;
+                    // 2. Печатаем по буквам с эффектом пишущей машинки
+                    await typeText(fullText);
+                    // 3. Показываем кнопку копирования
                     copyBtn.style.display = 'flex';
+                    // 4. Обновляем счётчик
                     if (data.demo_remaining !== undefined) {
                         demoCountSpan.textContent = data.demo_remaining;
+                        if (data.demo_remaining === 0) {
+                            limitMessage.style.display = 'block';
+                            createBtn.disabled = true;
+                            createBtn.textContent = '✨ Лимит исчерпан';
+                        }
                     }
+                } else if (data.code === 'limit_reached') {
+                    resultContent.innerHTML = '❌ ' + data.message;
+                    limitMessage.style.display = 'block';
+                    createBtn.disabled = true;
+                    createBtn.textContent = '✨ Лимит исчерпан';
                 } else {
-                    resultContent.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная ошибка');
-                    copyBtn.style.display = 'none';
+                    resultContent.innerHTML = '❌ Ошибка: ' + (data.message || 'Неизвестная ошибка');
                 }
             } catch (err) {
-                resultContent.textContent = '❌ Не удалось соединиться с сервером. Проверьте интернет.';
-                copyBtn.style.display = 'none';
-                console.error('Fetch error:', err);
+                resultContent.innerHTML = '❌ Не удалось соединиться с сервером. Проверьте интернет.';
+                console.error(err);
             }
 
             btn.disabled = false;
             btn.textContent = '✨ Создать AIID';
         });
 
-        console.log('✅ SIGN Free — 35 жанров + информационные блоки');
+        // ===== ФУНКЦИЯ ПЕЧАТИ С ПОДСВЕТКОЙ =====
+        async function typeText(fullText) {
+            let displayed = '';
+            const chars = fullText.split('');
+            const delay = 12; // миллисекунд между символами (можно регулировать)
+
+            for (let i = 0; i < chars.length; i++) {
+                displayed += chars[i];
+                // Обновляем рендер каждые 5 символов для производительности
+                if (i % 5 === 0 || i === chars.length - 1) {
+                    renderMarkdown(displayed, i < chars.length - 1);
+                }
+                await new Promise(r => setTimeout(r, delay));
+            }
+            // Финальный рендер без курсора (если не отключено)
+            renderMarkdown(displayed, false);
+        }
+
+        function renderMarkdown(text, showCursor = true) {
+            const lines = text.split('\n');
+            let html = '';
+            for (let line of lines) {
+                if (line.startsWith('# ')) {
+                    html += `<div class="red">${line}</div>`;
+                } else if (line.startsWith('## ')) {
+                    html += `<div class="red" style="font-weight:bold;">${line}</div>`;
+                } else if (line.startsWith('---')) {
+                    html += `<hr style="border-color:#0f0; opacity:0.3;">`;
+                } else if (line.trim() === '') {
+                    html += '<br>';
+                } else {
+                    html += `<span class="white">${line}</span><br>`;
+                }
+            }
+            if (showCursor) {
+                html += `<span class="cursor"></span>`;
+            }
+            resultContent.innerHTML = html;
+            // Автоскролл вниз
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+        }
+
+        console.log('✅ SIGN Free — 57 жанров, эффект печати, матричный стиль');
     })();
 </script>
 </body>
