@@ -11,14 +11,13 @@
             color: #e8e8f0;
             font-family: 'Segoe UI', system-ui, sans-serif;
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
+            padding: 0;
             background-image: radial-gradient(ellipse at 50% 0%, #1a1a2e 0%, #0a0a0f 70%);
         }
         .container {
             max-width: 1200px;
             width: 100%;
+            margin: 0 auto;
         }
         .header {
             text-align: center;
@@ -310,9 +309,43 @@
             .result-actions { flex-wrap: wrap; justify-content: center; }
             .info-grid { grid-template-columns: 1fr; }
         }
+
+        /* === ВЕРХНЯЯ НАВИГАЦИЯ === */
+        .top-nav{position:sticky; top:0; z-index:100; background:rgba(10,10,15,.9); backdrop-filter:blur(12px); border-bottom:1px solid transparent; border-image:linear-gradient(90deg, transparent 0%, #00ff88 50%, transparent 100%) 1; box-shadow:0 1px 20px #00ff8844, 0 0 40px #00ff8844; margin:0 0 20px;}
+        .top-nav-inner{max-width:1300px; margin:0 auto; padding:14px 20px; display:flex; justify-content:center; align-items:center; gap:6px; flex-wrap:wrap;}
+        .nav-link{color:#8888aa; text-decoration:none; font-size:.85rem; letter-spacing:2px; text-transform:uppercase; padding:6px 14px; border-radius:60px; transition:all .3s;}
+        .nav-link:hover{color:#00ff88; text-shadow:0 0 12px #00ff8844;}
+        .nav-link.active{color:#00ff88; text-shadow:0 0 16px #00ff8844;}
+        .nav-main{color:#ffd700; font-weight:500;}
+        .nav-main:hover{color:#ffd700; text-shadow:0 0 12px #ffd70044;}
+        .nav-main.active{color:#ffd700; text-shadow:0 0 16px #ffd70044;}
+        .nav-sep{color:#2a2a3e; font-size:.85rem; user-select:none;}
+        .nav-divider{display:inline-block; width:1px; height:16px; background:#2a2a3e; margin:0 12px;}
+        @media (max-width:768px){
+            .top-nav{margin:0 0 16px;}
+            .top-nav-inner{padding:10px 8px; gap:2px;}
+            .nav-link{font-size:.7rem; padding:6px 8px; letter-spacing:1px;}
+        }
     </style>
 </head>
 <body>
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="https://signai.space" class="nav-link nav-main">SIGN</a>
+    <a href="https://signai.space/marketplace" class="nav-link nav-main">Marketplace</a>
+    <span class="nav-divider"></span>
+    <a href="/docs" class="nav-link">Docs</a>
+    <span class="nav-sep">·</span>
+    <a href="/lab" class="nav-link">Lab</a>
+    <span class="nav-sep">·</span>
+    <a href="/offer" class="nav-link">Offer</a>
+    <span class="nav-sep">·</span>
+    <a href="/privacy" class="nav-link">Privacy</a>
+    <span class="nav-sep">·</span>
+    <a href="/FAQ" class="nav-link">FAQ</a>
+  </div>
+</nav>
+
 <div class="container">
 
     <div class="header">

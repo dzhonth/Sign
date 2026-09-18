@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Eidos Universe{% endblock %}</title>
+<style>
+:root{
+  --gold:#ffd700; --gold-dim:#ffd70044;
+  --emerald:#00ff88; --emerald-dim:#00ff8844;
+  --cyan:#00d4ff; --cyan-dim:#00d4ff44;
+  --bg:#0a0a0f; --panel:#12121e; --border:#2a2a3e;
+  --text:#e8e8f0; --muted:#8888aa;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Segoe UI',system-ui,sans-serif;
+  min-height:100vh; padding:0;
+  background-image:radial-gradient(ellipse at 50% 0%, #1a1a0a 0%, #0a0a0f 70%);
+}
+
+/* === ВЕРХНЯЯ ЛИНИЯ НАВИГАЦИИ === */
+.top-nav{
+  position:sticky; top:0; z-index:100;
+  background:rgba(10,10,15,.9);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid transparent;
+  border-image:linear-gradient(90deg, transparent 0%, var(--emerald) 50%, transparent 100%) 1;
+  box-shadow:0 1px 20px var(--emerald-dim), 0 0 40px var(--emerald-dim);
+}
+.top-nav-inner{
+  max-width:1300px; margin:0 auto;
+  padding:14px 20px;
+  display:flex; justify-content:center; align-items:center;
+  gap:6px;
+}
+.nav-link{
+  color:var(--muted); text-decoration:none;
+  font-size:.85rem; letter-spacing:2px;
+  text-transform:uppercase;
+  padding:6px 14px; border-radius:60px;
+  transition:all .3s;
+  position:relative;
+}
+.nav-link:hover{
+  color:var(--emerald);
+  text-shadow:0 0 12px var(--emerald-dim);
+}
+.nav-link.active{
+  color:var(--emerald);
+  text-shadow:0 0 16px var(--emerald-dim);
+}
+.nav-sep{color:#2a2a3e; font-size:.85rem; user-select:none;}
+.nav-main{color:var(--gold); font-weight:500;}
+.nav-main:hover{color:var(--gold); text-shadow:0 0 12px var(--gold-dim);}
+.nav-divider{display:inline-block; width:1px; height:16px; background:var(--border); margin:0 12px;}
+
+/* === КОНТЕЙНЕР === */
+.container{position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:40px 20px 60px;}
+
+/* === ФУТЕР === */
+.footer{
+  text-align:center; padding:40px 20px 20px;
+  border-top:1px solid var(--border);
+  color:#555577; font-size:.8rem;
+  letter-spacing:1px;
+}
+.footer a{color:var(--emerald); text-decoration:none; margin:0 8px;}
+.footer a:hover{text-shadow:0 0 12px var(--emerald-dim);}
+
+/* === ОБЩИЕ ЗАГОЛОВКИ === */
+h1.page-title{
+  font-size:clamp(1.8rem,4vw,2.6rem);
+  font-weight:200; letter-spacing:8px;
+  color:var(--gold); margin-bottom:24px;
+  text-transform:uppercase;
+  text-shadow:0 0 40px var(--gold-dim);
+}
+h2.section{
+  font-size:1.3rem; font-weight:300;
+  letter-spacing:4px; color:var(--gold);
+  margin:36px 0 16px;
+  text-transform:uppercase;
+}
+h3.subsection{
+  font-size:1rem; font-weight:600;
+  letter-spacing:2px; color:#f0f0ff;
+  margin:24px 0 12px;
+}
+p{margin-bottom:14px; line-height:1.7; color:#c8c8d8;}
+strong{color:#f0f0ff; font-weight:600;}
+a{color:var(--emerald);}
+
+/* === ТАБЛИЦЫ === */
+table.doc-table{
+  width:100%; border-collapse:collapse;
+  margin:16px 0 24px;
+  background:rgba(18,18,30,.6);
+  border-radius:12px; overflow:hidden;
+  font-size:.9rem;
+}
+table.doc-table th{
+  background:rgba(255,215,0,.06);
+  color:var(--gold); font-weight:600;
+  text-align:left; padding:12px 16px;
+  letter-spacing:1px; font-size:.8rem;
+  text-transform:uppercase;
+  border-bottom:1px solid var(--border);
+}
+table.doc-table td{
+  padding:10px 16px; color:#c8c8d8;
+  border-bottom:1px solid rgba(42,42,62,.5);
+}
+table.doc-table tr:last-child td{border-bottom:none;}
+table.doc-table tr:hover td{background:rgba(0,255,136,.03);}
+
+@media (max-width:768px){
+  .top-nav-inner{padding:10px 8px; gap:2px;}
+  .nav-link{font-size:.7rem; padding:6px 8px; letter-spacing:1px;}
+  .nav-sep{font-size:.7rem;}
+  .container{padding:24px 14px 40px;}
+  table.doc-table{font-size:.8rem;}
+  table.doc-table th, table.doc-table td{padding:8px 10px;}
+}
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <a href="https://signai.space" class="nav-link nav-main">SIGN</a>
+    <a href="https://signai.space/marketplace" class="nav-link nav-main">Marketplace</a>
+    <span class="nav-divider"></span>
+    <a href="/docs" class="nav-link {% block nav_docs %}{% endblock %}">Docs</a>
+    <span class="nav-sep">·</span>
+    <a href="/lab" class="nav-link {% block nav_lab %}{% endblock %}">Lab</a>
+    <span class="nav-sep">·</span>
+    <a href="/offer" class="nav-link {% block nav_offer %}{% endblock %}">Offer</a>
+    <span class="nav-sep">·</span>
+    <a href="/privacy" class="nav-link {% block nav_privacy %}{% endblock %}">Privacy</a>
+    <span class="nav-sep">·</span>
+    <a href="/FAQ" class="nav-link {% block nav_faq %}{% endblock %}">FAQ</a>
+  </div>
+</nav>
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+<div class="footer">
+  SIGN · <a href="https://signai.space/marketplace">Marketplace</a> · <a href="https://signai.space">SIGN</a> · <a href="https://t.me/xPandify">Вселенная Эйдос</a>
+</div>
+
+</body>
+</html>

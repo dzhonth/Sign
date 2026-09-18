@@ -1,5 +1,12 @@
+import uuid
+import requests
+import base64
+import json
 from flask import Flask, render_template, request, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import sqlite3
 import json
 import math
@@ -8,10 +15,41 @@ import string
 from datetime import datetime
 import requests
 import os
+from dotenv import load_dotenv
+load_dotenv('/root/Sign/.env')
+import hmac
+import hashlib
 
 app = Flask(__name__, template_folder='templates')
-CORS(app)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+YOOKASSA_SHOP_ID = os.getenv('YOOKASSA_SHOP_ID')
+YOOKASSA_SECRET_KEY = os.getenv('YOOKASSA_SECRET_KEY')
+CORS(app, resources={r"/api/*": {"origins": ["https://signai.space", "https://free.signai.space"]}})
 
+def get_client_ip():
+    forwarded = request.headers.get('X-Real-IP')
+    if forwarded:
+        return forwarded
+    forwarded_for = request.headers.get('X-Forwarded-For')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+limiter = Limiter(
+    key_func=get_client_ip,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="redis://localhost:6379"
+)
+# Тарифы SIGN — пакеты генераций AIID
+TARIFFS = {
+    'start':     {'generations': 10, 'price': 1000, 'name': 'Старт'},
+    'extended':  {'generations': 20, 'price': 1500, 'name': 'Расширенный'},
+    'pro':       {'generations': 30, 'price': 1800, 'name': 'Профи'},
+    'master':    {'generations': 40, 'price': 2000, 'name': 'Мастер'},
+    'unlimited': {'generations': -1, 'price': 3000, 'name': 'Безлимит'}
+}
 # ====================
 # БАЗА ДАННЫХ
 # ====================
@@ -86,14 +124,24 @@ DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 
 def generate_with_deepseek(genre, archetype, dna, owner_name):
+    from openai import OpenAI
+    import os
+    from datetime import datetime
+
+    client = OpenAI(
+        api_key=os.getenv('DEEPSEEK_API_KEY'),
+        base_url=os.getenv('DEEPSEEK_BASE_URL')
+    )
+
     dna_str = (f"Риск: {dna['risk']}/10, Скорость: {dna['speed']}/10, Креатив: {dna['creativity']}/10, "
                f"Точность: {dna['precision']}/10, Эмпатия: {dna['empathy']}/10, "
                f"Автономность: {dna['autonomy']}/10, Вербальность: {dna['verbality']}/10")
+
     prompt = f"""
     Ты — генератор AIID-паспортов для цифровых помощников. Создай AIID для агента в жанре "{genre}" с архетипом "{archetype}".
     Владелец: {owner_name or 'Агент'}.
     ДНК агента (из росчерка): {dna_str}.
-    
+
     Ответ должен быть в формате Markdown со следующими разделами:
     # AIID: [сгенерируй код]
     # Версия: 1.0
@@ -126,27 +174,22 @@ def generate_with_deepseek(genre, archetype, dna, owner_name):
 
     ## ПРОМПТ (скопируй в нейросеть)
     Напиши готовый промпт для использования агента в нейросети (около 10 предложений).
-
-    ---
-    🧬 Создано во вселенной Eidos.
     """
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "Ты — помощник, который генерирует AIID-паспорта."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.8,
-        "max_tokens": 2000
-    }
+
     try:
-        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        return data['choices'][0]['message']['content']
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "Ты — AI-архитектор. Отвечай только на русском языке."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        return response.choices[0].message.content
     except Exception as e:
-        print(f"Ошибка DeepSeek: {e}")
+        # Логируем ошибку, но не возвращаем fallback (пусть build_aiid отдаст fallback)
+        print(f"DeepSeek error: {e}")
         return None
 
 # ====================
@@ -316,8 +359,8 @@ def build_aiid(genre, specialization, owner_name, dna, aiid_type, aiid_code):
 # ====================
 # ЛИМИТЫ
 # ====================
-FREE_LIMIT = 10000
-PAID_TRIAL_LIMIT = 2
+FREE_LIMIT = 100000000
+PAID_TRIAL_LIMIT = 1
 
 # ====================
 # РОУТЫ
@@ -329,11 +372,8 @@ def index():
         return render_template('free.html')
     return render_template('paid.html')
 
-@app.route('/requisites')
-def requisites():
-    return render_template('requisites.html')
-
 @app.route('/api/generate_free', methods=['POST'])
+@limiter.limit("10 per hour")
 def generate_free():
     data = request.json
     device_id = request.headers.get('X-Device-ID', 'unknown')
@@ -366,6 +406,7 @@ def generate_free():
     })
 
 @app.route('/api/generate_paid', methods=['POST'])
+@limiter.limit("10 per hour")
 def generate_paid():
     data = request.json
     device_id = request.headers.get('X-Device-ID', 'unknown')
@@ -386,6 +427,31 @@ def generate_paid():
         'aiid_code': aiid_code
     })
 
+@app.route('/api/get_user_status', methods=['POST'])
+def get_user_status():
+    data = request.json
+    device_id = data.get('device_id')
+
+    if not device_id:
+        return jsonify({'aiid_count': 0, 'type': 'free'})
+
+    conn = sqlite3.connect('sign.db')
+    try:
+        c = conn.cursor()
+        c.execute("SELECT type, aiid_count FROM users WHERE device_id = ?", (device_id,))
+        row = c.fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return jsonify({'aiid_count': 0, 'type': 'free'})
+
+    return jsonify({
+        'aiid_count': row[1] if row[1] is not None else 0,
+        'type': row[0] if row[0] else 'free'
+    })
+
+
 @app.after_request
 def add_no_cache_headers(response):
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -393,5 +459,362 @@ def add_no_cache_headers(response):
     response.headers['Expires'] = '0'
     return response
 
+# ============================================================
+# === ПЛАТЕЖИ: MARKETPLACE (покупка цифровых помощников) ===
+# ============================================================
+
+@app.route('/api/create_payment', methods=['POST'])
+@limiter.limit("10 per hour")
+def create_payment():
+    data = request.json
+    device_id = data.get('device_id')
+    helper_id = data.get('helper_id')
+
+    # Валидация обязательных полей
+    if not device_id:
+        return jsonify({'error': 'device_id required'}), 400
+    if not helper_id:
+        return jsonify({'error': 'helper_id required'}), 400
+
+    # Проверяем, что helper_id существует в agents.json
+    helpers = load_helpers()
+    helper = next((h for h in helpers if h['id'] == helper_id), None)
+    if not helper:
+        return jsonify({'error': 'helper not found'}), 404
+
+    # Берём цену помощника из agents.json, а не из запроса
+    # Это защита от подмены цены на стороне клиента
+    amount = helper['price_rub']
+
+    payment_data = {
+        "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
+        "confirmation": {"type": "redirect", "return_url": f"https://signai.space/marketplace?paid={helper_id}"},
+        "capture": True,
+        "description": f"Найм помощника {helper['name']}",
+        "metadata": {
+            "device_id": device_id,
+            "helper_id": helper_id
+        }
+    }
+
+    print(f"DEBUG create_payment: SHOP_ID = {YOOKASSA_SHOP_ID}, SECRET len = {len(YOOKASSA_SECRET_KEY) if YOOKASSA_SECRET_KEY else 0}")    
+    auth = base64.b64encode(f"{YOOKASSA_SHOP_ID}:{YOOKASSA_SECRET_KEY}".encode()).decode()
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {auth}",
+        "Idempotence-Key": str(uuid.uuid4())
+    }
+
+    try:
+        response = requests.post(
+            "https://api.yookassa.ru/v3/payments",
+            json=payment_data,
+            headers=headers,
+            timeout=15
+        )
+        result = response.json()
+        if response.status_code == 200:
+            return jsonify({
+                'confirmation_url': result['confirmation']['confirmation_url'],
+                'payment_id': result['id']
+            })
+        else:
+            return jsonify({'error': result.get('description', 'Ошибка ЮKassa')}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+# ============================================================
+# === ПЛАТЕЖИ: SIGN (пакеты генераций AIID) ===
+# ============================================================
+
+@app.route('/api/create_payment_sign', methods=['POST'])
+@limiter.limit("10 per hour")
+def create_payment_sign():
+    data = request.json
+    device_id = data.get('device_id')
+    tariff_id = data.get('tariff_id')
+
+    if not device_id:
+        return jsonify({'error': 'device_id required'}), 400
+    if not tariff_id:
+        return jsonify({'error': 'tariff_id required'}), 400
+
+    if tariff_id not in TARIFFS:
+        return jsonify({'error': 'unknown tariff'}), 404
+
+    tariff = TARIFFS[tariff_id]
+    amount = tariff['price']
+
+    payment_data = {
+        "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
+        "confirmation": {"type": "redirect", "return_url": f"https://signai.space/?payment=success&tariff={tariff_id}"},
+        "capture": True,
+        "description": f"Пакет генераций SIGN: {tariff['name']}",
+        "metadata": {
+            "device_id": device_id,
+            "tariff_id": tariff_id,
+            "type": "sign"
+        }
+    }
+
+    auth = base64.b64encode(f"{YOOKASSA_SHOP_ID}:{YOOKASSA_SECRET_KEY}".encode()).decode()
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {auth}",
+        "Idempotence-Key": str(uuid.uuid4())
+    }
+
+    try:
+        response = requests.post(
+            "https://api.yookassa.ru/v3/payments",
+            json=payment_data,
+            headers=headers,
+            timeout=15
+        )
+        result = response.json()
+        if response.status_code == 200:
+            return jsonify({
+                'confirmation_url': result['confirmation']['confirmation_url'],
+                'payment_id': result['id']
+            })
+        else:
+            return jsonify({'error': result.get('description', 'Ошибка ЮKassa')}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# === ВИТРИНА ЦИФРОВЫХ ПОМОЩНИКОВ ===
+def load_helpers():
+    """Загружает список цифровых помощников для витрины."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        return json.load(f)['agents']
+@app.route('/docs')
+def docs():
+    return render_template('docs.html')
+@app.route('/FAQ')
+def faq():
+    return render_template('faq.html')
+
+@app.route('/offer')
+def offer():
+    return render_template('offer.html')
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+@app.route('/lab')
+def lab():
+    helpers = load_helpers()
+    lab_helpers = [h for h in helpers if h.get('tier') == 'lab']
+    public_helpers = []
+    for h in lab_helpers:
+        public_h = {k: v for k, v in h.items() if k != 'prompt'}
+        public_helpers.append(public_h)
+    return render_template('lab.html', agents_json=json.dumps(public_helpers, ensure_ascii=False))
+
+@app.route('/marketplace')
+def marketplace():
+    helpers = load_helpers()
+    helpers = [h for h in helpers if h.get('tier') != 'hidden']
+    helpers.sort(key=lambda h: (h.get('tier_order', 99), -h.get('price_rub', 0)))
+    # Убираем prompt из публичных данных витрины — защита от кражи промптов
+    public_helpers = []
+    for h in helpers:
+        public_h = {k: v for k, v in h.items() if k != 'prompt'}
+        public_helpers.append(public_h)
+    return render_template('marketplace.html', agents_json=json.dumps(public_helpers, ensure_ascii=False))
+# ============================================================
+# === ОБЩЕЕ: вебхук ЮKassa (обрабатывает marketplace и sign) ===
+# ============================================================
+
+@app.route('/api/yookassa_webhook', methods=['POST'])
+def yookassa_webhook():
+    data = request.json
+    if not data:
+        return 'Bad request', 400
+
+    if data.get('event') != 'payment.succeeded':
+        return 'Ignored', 200
+
+    payment = data.get('object', {})
+    payment_id = payment.get('id')
+    if not payment_id:
+        print('YooKassa webhook: нет payment_id в теле')
+        return 'No payment_id', 400
+
+    auth = base64.b64encode(f"{YOOKASSA_SHOP_ID}:{YOOKASSA_SECRET_KEY}".encode()).decode()
+    headers = {"Authorization": f"Basic {auth}"}
+
+    try:
+        resp = requests.get(
+            f"https://api.yookassa.ru/v3/payments/{payment_id}",
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code != 200:
+            print(f'YooKassa webhook: платеж {payment_id} не найден в API (status {resp.status_code})')
+            return 'Payment not found', 403
+
+        verified = resp.json()
+        if verified.get('status') != 'succeeded':
+            print(f'YooKassa webhook: платеж {payment_id} не succeeded')
+            return 'Payment not succeeded', 403
+
+        verified_metadata = verified.get('metadata', {})
+        device_id = verified_metadata.get('device_id')
+        payment_type = verified_metadata.get('type', 'marketplace')
+        helper_id = verified_metadata.get('helper_id')
+        tariff_id = verified_metadata.get('tariff_id')
+        amount_str = verified.get('amount', {}).get('value', '0')
+
+    except Exception as e:
+        print(f'YooKassa webhook: ошибка проверки — {e}')
+        return 'Verification error', 500
+
+    if not device_id:
+        print('YooKassa webhook: нет device_id в metadata')
+        return 'Missing device_id', 400
+
+    try:
+        amount_int = int(float(amount_str))
+    except (ValueError, TypeError):
+        amount_int = 0
+
+    conn = sqlite3.connect('sign.db')
+    try:
+        c = conn.cursor()
+
+        if payment_type == 'marketplace':
+            if not helper_id:
+                conn.close()
+                print('YooKassa webhook: нет helper_id для marketplace')
+                return 'Missing helper_id', 400
+
+            c.execute("INSERT INTO purchases (device_id, helper_id, payment_id, amount, status, type) VALUES (?, ?, ?, ?, 'succeeded', 'marketplace')", (device_id, helper_id, payment_id, amount_int))
+            c.execute("INSERT OR IGNORE INTO users (device_id, type) VALUES (?, 'paid')", (device_id,))
+            c.execute("UPDATE users SET type = 'paid' WHERE device_id = ?", (device_id,))
+            conn.commit()
+            print(f'YooKassa webhook: покупка помощника. Пользователь {device_id}, помощник {helper_id}, платеж {payment_id}, сумма {amount_int}')
+            return 'OK', 200
+
+        elif payment_type == 'sign':
+            if not tariff_id or tariff_id not in TARIFFS:
+                conn.close()
+                print(f'YooKassa webhook: неизвестный tariff_id ({tariff_id})')
+                return 'Missing tariff_id', 400
+
+            tariff = TARIFFS[tariff_id]
+            generations = tariff['generations']
+
+            c.execute("INSERT INTO purchases (device_id, helper_id, payment_id, amount, status, type) VALUES (?, ?, ?, ?, 'succeeded', 'sign')", (device_id, tariff_id, payment_id, amount_int))
+            c.execute("INSERT OR IGNORE INTO users (device_id, type, aiid_count) VALUES (?, 'free', 0)", (device_id,))
+
+            if generations == -1:
+                c.execute("UPDATE users SET aiid_count = -1 WHERE device_id = ?", (device_id,))
+                print(f'YooKassa webhook: пакет SIGN. Пользователь {device_id}, тариф {tariff["name"]}, БЕЗЛИМИТ, платеж {payment_id}, сумма {amount_int}')
+            else:
+                c.execute("UPDATE users SET aiid_count = aiid_count + ? WHERE device_id = ?", (generations, device_id))
+                print(f'YooKassa webhook: пакет SIGN. Пользователь {device_id}, тариф {tariff["name"]}, +{generations} генераций, платеж {payment_id}, сумма {amount_int}')
+
+            conn.commit()
+            return 'OK', 200
+
+        else:
+            conn.close()
+            print(f'YooKassa webhook: неизвестный type ({payment_type})')
+            return 'Unknown type', 400
+
+    except sqlite3.IntegrityError:
+        print(f'YooKassa webhook: платеж {payment_id} уже обработан')
+        conn.rollback()
+
+    except Exception as e:
+        print(f'YooKassa webhook: ошибка БД — {e}')
+        conn.rollback()
+        return 'Database error', 500
+
+    finally:
+        conn.close()
+
+    return 'OK', 200
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({
+        'error': 'rate_limit_exceeded',
+        'message': 'Слишком много запросов. Попробуйте позже.',
+        'retry_after': str(e.description)
+    }), 429
+@app.route('/api/get_full_aiid', methods=['POST'])
+def get_full_aiid():
+    data = request.json
+    device_id = data.get('device_id')
+    helper_id = data.get('helper_id')
+
+    if not device_id or not helper_id:
+        return jsonify({'error': 'device_id and helper_id required'}), 400
+
+    conn = sqlite3.connect('sign.db')
+    try:
+        c = conn.cursor()
+        c.execute('''SELECT id FROM purchases
+                     WHERE device_id = ? AND helper_id = ? AND status = 'succeeded'
+                     LIMIT 1''', (device_id, helper_id))
+        purchase = c.fetchone()
+    finally:
+        conn.close()
+
+    if not purchase:
+        return jsonify({'error': 'not purchased'}), 403
+
+    helpers = load_helpers()
+    helper = next((h for h in helpers if h['id'] == helper_id), None)
+    if not helper:
+        return jsonify({'error': 'helper not found'}), 404
+
+    return jsonify({
+        'aiid': helper,
+        'prompt': helper.get('prompt', '')
+    })
+@app.route('/api/check_purchase', methods=['POST'])
+def check_purchase():
+    data = request.json
+    device_id = data.get('device_id')
+    helper_id = data.get('helper_id')
+
+    if not device_id or not helper_id:
+        return jsonify({'purchased': False})
+
+    conn = sqlite3.connect('sign.db')
+    try:
+        c = conn.cursor()
+        c.execute('''SELECT id FROM purchases
+                     WHERE device_id = ? AND helper_id = ? AND status = 'succeeded'
+                     LIMIT 1''', (device_id, helper_id))
+        purchase = c.fetchone()
+    finally:
+        conn.close()
+
+    return jsonify({'purchased': bool(purchase)})
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; "
+        "connect-src 'self' https://api.yookassa.ru; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    return response
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)

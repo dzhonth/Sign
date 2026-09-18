@@ -1,0 +1,148 @@
+{% extends "layout.html" %}
+{% block title %}FAQ — Eidos Universe{% endblock %}
+{% block nav_faq %}active{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">FAQ</h1>
+
+<div class="faq-list">
+
+<div class="faq-item">
+<h3>Что такое AIID?</h3>
+<p>Цифровой паспорт помощника: ДНК, характер, задачи, промпт.</p>
+</div>
+
+<div class="faq-item">
+<h3>Как работает SIGN?</h3>
+<p>Выбираете жанр, рисуете росчерк — получаете AIID с промптом.</p>
+</div>
+
+<div class="faq-item">
+<h3>Что такое росчерк?</h3>
+<p>Уникальный биометрический паттерн, по которому определяется характер.</p>
+</div>
+
+<div class="faq-item">
+<h3>Сколько жанров?</h3>
+<p>57 направлений.</p>
+</div>
+
+<div class="faq-item">
+<h3>Можно бесплатно?</h3>
+<p>Да, 10 генераций в демо-версии.</p>
+</div>
+
+<div class="faq-item">
+<h3>Что после оплаты?</h3>
+<p>Полный AIID + промпт.</p>
+</div>
+
+<div class="faq-item">
+<h3>Куда вставлять промпт?</h3>
+<p>GigaChat, YandexGPT, DeepSeek, ChatGPT, Claude.</p>
+</div>
+
+<div class="faq-item">
+<h3>Чем отличаются от обычных промптов?</h3>
+<p>У каждого — своя ДНК и характер.</p>
+</div>
+
+<div class="faq-item">
+<h3>Это безопасно?</h3>
+<p>Да. Промпты скрыты до оплаты, данные в РФ.</p>
+</div>
+
+<div class="faq-item">
+<h3>Как получить продукт?</h3>
+<p>Сразу после оплаты.</p>
+</div>
+
+<div class="faq-item">
+<h3>Можно вернуть деньги?</h3>
+<p>Нет, кроме технической ошибки.</p>
+</div>
+
+<div class="faq-item">
+<h3>Есть скидки?</h3>
+<p>Первым 10 — 50%. Напишите нам в Telegram первыми.</p>
+</div>
+
+<div class="faq-item">
+<h3>Сколько стоит?</h3>
+<p>От 1000 ₽ на витрине, от 1000 ₽ в SIGN.</p>
+</div>
+
+<div class="faq-item">
+<h3>Что такое лаборатория?</h3>
+<p>Концепты ИИ-агентов + SIGN (Ready).</p>
+</div>
+
+<div class="faq-item">
+<h3>Будет ли личный кабинет?</h3>
+<p>Да, 1–3 месяца.</p>
+</div>
+
+<div class="faq-item">
+<h3>Будет ли рефералка?</h3>
+<p>Да, 20%. Скоро.</p>
+</div>
+
+<div class="faq-item">
+<h3>Будет ли токен?</h3>
+<p>После 50 продаж.</p>
+</div>
+
+<div class="faq-item">
+<h3>Можно стать партнёром?</h3>
+<p>Да, 50%.</p>
+</div>
+
+<div class="faq-item">
+<h3>Как связаться?</h3>
+<p>Telegram <a href="https://t.me/xPandify" target="_blank">@xPandify</a>, email <a href="mailto:Dzhonth@yandex.ru">Dzhonth@yandex.ru</a>.</p>
+</div>
+
+<div class="faq-item">
+<h3>Android-приложение?</h3>
+<p>В течение 1–3 месяцев.</p>
+</div>
+
+</div>
+
+<style>
+.faq-list{margin-top:24px;}
+.faq-item{
+  background:rgba(18,18,30,.6);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:20px 24px;
+  margin-bottom:14px;
+  transition:border-color .3s, box-shadow .3s;
+}
+.faq-item:hover{
+  border-color:#00ff8844;
+  box-shadow:0 0 24px #00ff8822;
+}
+.faq-item h3{
+  color:var(--gold);
+  font-size:1rem;
+  font-weight:600;
+  letter-spacing:1px;
+  margin-bottom:10px;
+}
+.faq-item p{
+  color:#c8c8d8;
+  font-size:.95rem;
+  line-height:1.6;
+  margin:0;
+}
+@media (max-width:600px){
+  .faq-item{padding:16px 18px;}
+  .faq-item h3{font-size:.9rem;}
+  .faq-item p{font-size:.85rem;}
+}
+</style>
+
+{% endblock %}
+

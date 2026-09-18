@@ -1,2 +1,13 @@
 .env
 templates/requisites.html
+sign.db
+sign.log
+Sign_backup/
+__pycache__/
+*.pyc
+run.py.backup
+run.py.backup_*
+*.bak
+*.save
+static/
+*.before_*
