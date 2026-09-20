@@ -140,6 +140,20 @@ body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,s
     .top-nav-inner{padding:10px 8px; gap:2px;}
     .nav-link{font-size:.7rem; padding:6px 8px; letter-spacing:1px;}
 }
+
+/* === НИЖНЯЯ ЛИНИЯ НАВИГАЦИИ === */
+.bottom-nav{
+  max-width:1300px; margin:60px auto 0;
+  padding:24px 20px 12px;
+  display:flex; justify-content:center; align-items:center;
+  gap:6px; flex-wrap:wrap;
+  border-top:1px solid transparent;
+  border-image:linear-gradient(90deg, transparent 0%, #00ff88 50%, transparent 100%) 1;
+  box-shadow:0 -1px 20px #00ff8844;
+}
+@media (max-width:768px){
+  .bottom-nav{padding:18px 8px 8px; gap:2px; margin-top:40px;}
+}
 </style>
 </head>
 <body>
@@ -147,16 +161,8 @@ body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,s
   <div class="top-nav-inner">
     <a href="https://signai.space" class="nav-link nav-main">SIGN</a>
     <a href="https://signai.space/marketplace" class="nav-link nav-main active">Marketplace</a>
-    <span class="nav-divider"></span>
-    <a href="/docs" class="nav-link">Docs</a>
-    <span class="nav-sep">·</span>
     <a href="/lab" class="nav-link">Lab</a>
-    <span class="nav-sep">·</span>
-    <a href="/offer" class="nav-link">Offer</a>
-    <span class="nav-sep">·</span>
-    <a href="/privacy" class="nav-link">Privacy</a>
-    <span class="nav-sep">·</span>
-    <a href="/FAQ" class="nav-link">FAQ</a>
+    <a href="/team" class="nav-link">Team</a>
   </div>
 </nav>
 
@@ -179,7 +185,17 @@ body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,s
 
   <div id="tierContainer"></div>
 
-  <div class="footer">Eidos MarketPlace · Вселенная Эйдос · 2026</div>
+  <nav class="bottom-nav">
+  <a href="/docs" class="nav-link">Docs</a>
+  <span class="nav-sep">·</span>
+  <a href="/offer" class="nav-link">Offer</a>
+  <span class="nav-sep">·</span>
+  <a href="/privacy" class="nav-link">Privacy</a>
+  <span class="nav-sep">·</span>
+  <a href="/FAQ" class="nav-link">FAQ</a>
+</nav>
+
+<div class="footer">Eidos MarketPlace · Вселенная Эйдос · 2026</div>
 </div>
 
 <div class="modal" id="agentModal">

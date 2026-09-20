@@ -367,23 +367,29 @@
             .top-nav-inner{padding:10px 8px; gap:2px;}
             .nav-link{font-size:.7rem; padding:6px 8px; letter-spacing:1px;}
         }
-    </style>
+    
+/* === НИЖНЯЯ ЛИНИЯ НАВИГАЦИИ === */
+.bottom-nav{
+  max-width:1300px; margin:60px auto 0;
+  padding:24px 20px 12px;
+  display:flex; justify-content:center; align-items:center;
+  gap:6px; flex-wrap:wrap;
+  border-top:1px solid transparent;
+  border-image:linear-gradient(90deg, transparent 0%, #00ff88 50%, transparent 100%) 1;
+  box-shadow:0 -1px 20px #00ff8844;
+}
+@media (max-width:768px){
+  .bottom-nav{padding:18px 8px 8px; gap:2px; margin-top:40px;}
+}
+</style>
 </head>
 <body>
 <nav class="top-nav">
   <div class="top-nav-inner">
     <a href="https://signai.space" class="nav-link nav-main active">SIGN</a>
     <a href="https://signai.space/marketplace" class="nav-link nav-main">Marketplace</a>
-    <span class="nav-divider"></span>
-    <a href="/docs" class="nav-link">Docs</a>
-    <span class="nav-sep">·</span>
     <a href="/lab" class="nav-link">Lab</a>
-    <span class="nav-sep">·</span>
-    <a href="/offer" class="nav-link">Offer</a>
-    <span class="nav-sep">·</span>
-    <a href="/privacy" class="nav-link">Privacy</a>
-    <span class="nav-sep">·</span>
-    <a href="/FAQ" class="nav-link">FAQ</a>
+    <a href="/team" class="nav-link">Team</a>
   </div>
 </nav>
 
@@ -424,7 +430,7 @@
             </div>
         </div>
 
-        <div class="section-title">Выбери жанр (все 50 активны)</div>
+        <div class="section-title">Выбери жанр (все 60 активны)</div>
         <div class="genre-grid" id="genreGrid"></div>
 
         <div class="input-group">
@@ -459,10 +465,20 @@
                
         </div>
 
-        <div class="footer">
-    SIGN · <a href="https://t.me/xPandify" target="_blank">Вселенная Эйдос</a>
-</div>
-    </div>
+        </div>
+
+<nav class="bottom-nav">
+  <a href="/docs" class="nav-link">Docs</a>
+  <span class="nav-sep">·</span>
+  <a href="/offer" class="nav-link">Offer</a>
+  <span class="nav-sep">·</span>
+  <a href="/privacy" class="nav-link">Privacy</a>
+  <span class="nav-sep">·</span>
+  <a href="/FAQ" class="nav-link">FAQ</a>
+</nav>
+
+<div class="footer"></div>
+
 
 
     <!-- МОДАЛКА ТАРИФОВ -->
@@ -478,19 +494,19 @@
     <script>
         (function() {
             const ALL_GENRES = [
-    'Спорт', 'Крипта', 'Творчество', 'Бизнес', 'Дом / Ремонт',
-    'Образование', 'Соцсети', 'Психология', 'Путешествия', 'Фото / Видео',
-    'Авто', 'IT / Програм.', 'Юриспруденция', 'Финансы', 'Маркетинг',
-    'Дизайн / UI', 'Здоровье', 'Кулинария', 'Игры', 'Фитнес / ЗОЖ',
-    'Языки', 'Наука', 'HR / Карьера', 'Психика', 'Недвижимость',
-    'Логистика', 'Ивенты', 'Мода / Стиль', 'Экология', 'Автоматизация',
-    'Крипто-юрид.', 'Инфобезопасность', 'Робототехника', 'ИИ', 'Кино',
-    'Астрономия', 'История', 'Философия', 'Инженерия', 'Кванты',
-    'Биотех', 'Семья', 'Спортмедицина', 'Сон / Биоритмы',
-    'Поэзия', 'Театр', 'Анимация', 'Коучинг', 'ESG', 'Псих.личности',
-    'Стартапы', 'Инвестиции', 'Личный бренд',
-    'Нетворкинг', 'Карьерный рост', 'Удалённая работа', 'Продуктивность'
-];
+    'Авто', 'Автоматизация', 'Аналитика / Данные', 'Анимация', 'Астрономия',
+    'Биотех', 'Бизнес', 'Дизайн / UI', 'Дом / Ремонт', 'Здоровье',
+    'Игры', 'ИИ', 'Ивенты', 'Инвестиции', 'Инженерия',
+    'Инфобезопасность', 'История', 'Карьерный рост', 'Кванты', 'Кино',
+    'Коучинг', 'Крипта', 'Крипто-юрид.', 'Кулинария', 'Личностный рост',
+    'Личный бренд', 'Логистика', 'Маркетинг', 'Мода / Стиль', 'Музыка',
+    'Наука', 'Недвижимость', 'Нетворкинг', 'Образование', 'Поэзия',
+    'Продуктивность', 'Психология', 'Путешествия', 'Ресторан / Гастро', 'Ритейл',
+    'Робототехника', 'Семья', 'Сон / Биоритмы', 'Соцсети', 'Спорт',
+    'Спортмедицина', 'Стартапы', 'Театр', 'Творчество', 'Удалённая работа',
+    'Фитнес / ЗОЖ', 'Философия', 'Финансы', 'Фото / Видео', 'Экология',
+    'Юриспруденция', 'Языки', 'ESG', 'HR / Карьера', 'IT / Програм.'
+            ];
 const HOT_GENRES = [
     'Крипта', 'ИИ', 'Бизнес', 'Коучинг',
     'Финансы', 'Ивенты', 'Недвижимость',

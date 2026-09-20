@@ -57,13 +57,23 @@ body{
 .nav-main:hover{color:var(--gold); text-shadow:0 0 12px var(--gold-dim);}
 .nav-divider{display:inline-block; width:1px; height:16px; background:var(--border); margin:0 12px;}
 
+/* === НИЖНЯЯ ЛИНИЯ НАВИГАЦИИ === */
+.bottom-nav{
+  max-width:1300px; margin:60px auto 0;
+  padding:24px 20px 12px;
+  display:flex; justify-content:center; align-items:center;
+  gap:6px;
+  border-top:1px solid transparent;
+  border-image:linear-gradient(90deg, transparent 0%, var(--emerald) 50%, transparent 100%) 1;
+  box-shadow:0 -1px 20px var(--emerald-dim);
+}
+
 /* === КОНТЕЙНЕР === */
 .container{position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:40px 20px 60px;}
 
 /* === ФУТЕР === */
 .footer{
-  text-align:center; padding:40px 20px 20px;
-  border-top:1px solid var(--border);
+  text-align:center; padding:24px 20px 30px;
   color:#555577; font-size:.8rem;
   letter-spacing:1px;
 }
@@ -121,6 +131,7 @@ table.doc-table tr:hover td{background:rgba(0,255,136,.03);}
   .nav-link{font-size:.7rem; padding:6px 8px; letter-spacing:1px;}
   .nav-sep{font-size:.7rem;}
   .container{padding:24px 14px 40px;}
+  .bottom-nav{padding:18px 8px 8px; gap:2px; margin-top:40px;}
   table.doc-table{font-size:.8rem;}
   table.doc-table th, table.doc-table td{padding:8px 10px;}
 }
@@ -132,21 +143,24 @@ table.doc-table tr:hover td{background:rgba(0,255,136,.03);}
   <div class="top-nav-inner">
     <a href="https://signai.space" class="nav-link nav-main">SIGN</a>
     <a href="https://signai.space/marketplace" class="nav-link nav-main">Marketplace</a>
-    <span class="nav-divider"></span>
-    <a href="/docs" class="nav-link {% block nav_docs %}{% endblock %}">Docs</a>
-    <span class="nav-sep">·</span>
     <a href="/lab" class="nav-link {% block nav_lab %}{% endblock %}">Lab</a>
-    <span class="nav-sep">·</span>
-    <a href="/offer" class="nav-link {% block nav_offer %}{% endblock %}">Offer</a>
-    <span class="nav-sep">·</span>
-    <a href="/privacy" class="nav-link {% block nav_privacy %}{% endblock %}">Privacy</a>
-    <span class="nav-sep">·</span>
-    <a href="/FAQ" class="nav-link {% block nav_faq %}{% endblock %}">FAQ</a>
+    <a href="/team" class="nav-link {% block nav_team %}{% endblock %}">Team</a>
   </div>
 </nav>
+
 <div class="container">
   {% block content %}{% endblock %}
 </div>
+
+<nav class="bottom-nav">
+  <a href="/docs" class="nav-link {% block nav_docs %}{% endblock %}">Docs</a>
+  <span class="nav-sep">·</span>
+  <a href="/offer" class="nav-link {% block nav_offer %}{% endblock %}">Offer</a>
+  <span class="nav-sep">·</span>
+  <a href="/privacy" class="nav-link {% block nav_privacy %}{% endblock %}">Privacy</a>
+  <span class="nav-sep">·</span>
+  <a href="/FAQ" class="nav-link {% block nav_faq %}{% endblock %}">FAQ</a>
+</nav>
 
 <div class="footer">
   SIGN · <a href="https://signai.space/marketplace">Marketplace</a> · <a href="https://signai.space">SIGN</a> · <a href="https://t.me/xPandify">Вселенная Эйдос</a>

@@ -624,6 +624,20 @@ def marketplace():
         public_h = {k: v for k, v in h.items() if k != 'prompt'}
         public_helpers.append(public_h)
     return render_template('marketplace.html', agents_json=json.dumps(public_helpers, ensure_ascii=False))
+@app.route('/team')
+def team():
+    """Страница команды Eidos: основатель, команда, советники."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    team_data = data.get('team', {})
+    return render_template(
+        'team.html',
+        founder=team_data.get('founder'),
+        members=team_data.get('members', []),
+        advisors=team_data.get('advisors', [])
+    )
+
 # ============================================================
 # === ОБЩЕЕ: вебхук ЮKassa (обрабатывает marketplace и sign) ===
 # ============================================================
