@@ -24,7 +24,57 @@ app = Flask(__name__, template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 YOOKASSA_SHOP_ID = os.getenv('YOOKASSA_SHOP_ID')
 YOOKASSA_SECRET_KEY = os.getenv('YOOKASSA_SECRET_KEY')
+DEVICE_HMAC_SECRET = os.getenv('DEVICE_HMAC_SECRET', '')
+HMAC_STRICT = os.getenv('HMAC_STRICT', 'false').lower() == 'true'
+
+# === Логгер реджектов ===
+import logging
+reject_logger = logging.getLogger('sign.reject')
+reject_logger.setLevel(logging.INFO)
+if not reject_logger.handlers:
+    _h = logging.FileHandler('/var/log/sign/reject.log')
+    _h.setFormatter(logging.Formatter('%(message)s'))
+    reject_logger.addHandler(_h)
+    reject_logger.propagate = False
 CORS(app, resources={r"/api/*": {"origins": ["https://signai.space", "https://free.signai.space"]}})
+
+def sign_device_id(device_id):
+    """HMAC-SHA256 подпись для device_id."""
+    if not DEVICE_HMAC_SECRET:
+        return ''
+    return hmac.new(
+        DEVICE_HMAC_SECRET.encode(),
+        device_id.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+
+def verify_device_signature(device_id, sig):
+    """Проверка подписи (constant-time)."""
+    if not DEVICE_HMAC_SECRET:
+        return True  # нет секрета — не проверяем (fallback)
+    if not sig:
+        return False
+    expected = sign_device_id(device_id)
+    return hmac.compare_digest(expected, sig)
+
+
+def log_reject(reason, device_id='', extra=None):
+    """Пишет JSON-строку в reject.log."""
+    entry = {
+        'ts': datetime.utcnow().isoformat() + 'Z',
+        'event': 'reject',
+        'reason': reason,
+        'device_id': device_id,
+        'ip': get_client_ip() if request else '',
+    }
+    if extra:
+        entry.update(extra)
+    try:
+        reject_logger.info(json.dumps(entry, ensure_ascii=False))
+    except Exception as e:
+        print(f'reject_logger error: {e}')
+
 
 def get_client_ip():
     forwarded = request.headers.get('X-Real-IP')
@@ -66,6 +116,7 @@ def init_db():
         device_id TEXT UNIQUE NOT NULL,
         type TEXT DEFAULT 'free',
         aiid_count INTEGER DEFAULT 0,
+        paid_trial_used INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute('''CREATE TABLE IF NOT EXISTS aiid_logs (
@@ -336,6 +387,20 @@ def increment_aiid_count(user_id):
     conn.commit()
     conn.close()
 
+def decrement_aiid_count(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE users SET aiid_count = aiid_count - 1 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def increment_paid_trial(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE users SET paid_trial_used = 1 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
 def log_aiid(user_id, genre, specialization, aiid_type, dna_json, aiid_code):
     conn = get_db()
     c = conn.cursor()
@@ -359,8 +424,8 @@ def build_aiid(genre, specialization, owner_name, dna, aiid_type, aiid_code):
 # ====================
 # ЛИМИТЫ
 # ====================
-FREE_LIMIT = 100000000
-PAID_TRIAL_LIMIT = 1
+FREE_LIMIT_ANON = 9999999   # free.signai.space — QA-полигон
+FREE_LIMIT_PAID = 1          # signai.space — 1 бесплатная на пользователя
 
 # ====================
 # РОУТЫ
@@ -371,6 +436,51 @@ def index():
     if host.startswith('free.') or request.args.get('free'):
         return render_template('free.html')
     return render_template('paid.html')
+
+
+
+def check_device_auth(device_id, sig_from_header):
+    """Проверяет подпись. Возвращает (ok, error_response)."""
+    if not HMAC_STRICT:
+        return True, None  # strict выключен — пропускаем
+
+    if not device_id:
+        log_reject('missing_device_id', device_id)
+        return False, (jsonify({'error': 'device_id required', 'code': 'auth_failed'}), 401)
+
+    if not verify_device_signature(device_id, sig_from_header):
+        log_reject('invalid_signature', device_id)
+        return False, (jsonify({'error': 'invalid signature', 'code': 'auth_failed'}), 401)
+
+    return True, None
+
+
+@app.route('/api/register_device', methods=['POST'])
+def register_device():
+    """Регистрирует device_id и возвращает HMAC-подпись."""
+    data = request.json or {}
+    device_id = data.get('device_id', '').strip()
+
+    if not device_id or len(device_id) < 8 or len(device_id) > 128:
+        log_reject('register_invalid_device_id', device_id)
+        return jsonify({'error': 'invalid device_id'}), 400
+
+    sig = sign_device_id(device_id)
+
+    resp = jsonify({
+        'device_id': device_id,
+        'sig': sig,
+    })
+    resp.set_cookie(
+        'device_id',
+        device_id,
+        max_age=60 * 60 * 24 * 365,
+        httponly=True,
+        secure=True,
+        samesite='Lax'
+    )
+    return resp
+
 
 @app.route('/api/generate_free', methods=['POST'])
 @limiter.limit("10 per hour")
@@ -383,10 +493,10 @@ def generate_free():
     points = data.get('points', [])
 
     user = get_or_create_user(device_id)
-    if user['type'] == 'free' and user['aiid_count'] >= FREE_LIMIT:
+    if user['type'] == 'free' and user['aiid_count'] >= FREE_LIMIT_ANON:
         return jsonify({
             'status': 'error',
-            'message': f'Вы использовали все {FREE_LIMIT} бесплатных генераций. Перейдите на платную версию для неограниченного доступа.',
+            'message': f'Вы использовали все {FREE_LIMIT_ANON} бесплатных генераций. Перейдите на платную версию для неограниченного доступа.',
             'code': 'limit_reached'
         }), 403
 
@@ -397,7 +507,7 @@ def generate_free():
     increment_aiid_count(user['id'])
     log_aiid(user['id'], genre, specialization, 'demo', json.dumps(dna), aiid_code)
 
-    remaining = max(0, FREE_LIMIT - (user['aiid_count'] + 1))
+    remaining = max(0, FREE_LIMIT_ANON - (user['aiid_count'] + 1))
     return jsonify({
         'status': 'ok',
         'aiid_content': content,
@@ -409,13 +519,36 @@ def generate_free():
 @limiter.limit("10 per hour")
 def generate_paid():
     data = request.json
-    device_id = request.headers.get('X-Device-ID', 'unknown')
+    device_id = request.headers.get('X-Device-ID', '')
+    sig = request.headers.get('X-Device-Sig', '')
+    ok, err = check_device_auth(device_id, sig)
+    if not ok:
+        return err
     genre = data.get('genre')
     specialization = data.get('specialization', '')
     owner_name = data.get('owner_name', 'Агент')
     points = data.get('points', [])
 
     user = get_or_create_user(device_id)
+
+    # === ЛОГИКА ДОСТУПА ===
+    # -1 = безлимит (оплачен пакет «Безлимит»)
+    if user['aiid_count'] == -1:
+        pass
+    # Есть оплаченные генерации — списываем 1
+    elif user['aiid_count'] > 0:
+        decrement_aiid_count(user['id'])
+    # Первая бесплатная на paid — выдаём
+    elif user['paid_trial_used'] == 0:
+        increment_paid_trial(user['id'])
+    # Всё исчерпано — 403
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': 'Бесплатная генерация использована. Выберите тариф.',
+            'code': 'payment_required'
+        }), 403
+
     dna = calculate_dna(points)
     aiid_code = generate_aiid_code(genre)
     content = build_aiid(genre, specialization, owner_name, dna, 'PAID', aiid_code)
@@ -468,6 +601,10 @@ def add_no_cache_headers(response):
 def create_payment():
     data = request.json
     device_id = data.get('device_id')
+    sig = request.headers.get('X-Device-Sig', '')
+    ok, err = check_device_auth(device_id, sig)
+    if not ok:
+        return err
     helper_id = data.get('helper_id')
 
     # Валидация обязательных полей
@@ -531,6 +668,10 @@ def create_payment():
 def create_payment_sign():
     data = request.json
     device_id = data.get('device_id')
+    sig = request.headers.get('X-Device-Sig', '')
+    ok, err = check_device_auth(device_id, sig)
+    if not ok:
+        return err
     tariff_id = data.get('tariff_id')
 
     if not device_id:

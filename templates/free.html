@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGN AI — Космическая кузница агентов</title>
+    <title>SIGN AI — Демо: 10 бесплатных генераций AIID</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -340,6 +340,21 @@
 @media (max-width:768px){
   .bottom-nav{padding:18px 8px 8px; gap:2px; margin-top:40px;}
 }
+        @media (max-width:600px){
+        }
+        .btn-clear{
+            display:block; margin:8px auto 12px;
+            background:rgba(10,10,15,.75); color:#00ff88;
+            border:1px solid #00ff8844; border-radius:60px;
+            padding:10px 16px; font-size:.75rem; letter-spacing:1px;
+            text-transform:uppercase; cursor:pointer;
+            opacity:.7; transition:all .3s;
+            backdrop-filter:blur(6px); white-space:nowrap;
+        }
+        @media (max-width:700px){
+            .btn-clear{order:2; padding:10px 16px;}
+            #signCanvas{order:1;}
+        }
 </style>
 </head>
 <body>
@@ -356,7 +371,7 @@
 
     <div class="header">
         <div class="logo">SIGN <span>AI</span></div>
-        <div class="subtitle">Космическая кузница агентов искусственного интеллекта</div>
+        <div class="subtitle">Демо-версия: AIID + промпт для твоей нейросети</div>
         <div class="demo-badge">🚀 Сгенерируй своего цифрового помощника здесь и сейчас</div>
         <div class="demo-badge" style="margin-top:8px;">⚡ Осталось <span id="demoCount">10</span> бесплатных генераций</div>
     </div>
@@ -365,12 +380,12 @@
         <div class="info-block">
             <span class="icon">🧠</span>
             <h3>Что такое цифровой помощник?</h3>
-            <p>Это ИИ, который понимает твой стиль, адаптируется под задачи и работает 24/7. Он не просто отвечает — он решает.</p>
+            <p>AIID описывает твой стиль, задачи и характер. Промпт готов к вставке в твою нейросеть.</p>
         </div>
         <div class="info-block">
             <span class="icon">🧬</span>
             <h3>Что такое AIID?</h3>
-            <p>AIID (Artificial Intelligence Identity Document) — цифровой паспорт твоего агента: ДНК, характер, задачи, промпт.</p>
+            <p>AIID (Artificial Intelligence Identity Document) — цифровой паспорт твоего цифрового помощника: ДНК, характер, задачи, промпт.</p>
         </div>
         <div class="info-block">
             <span class="icon">📖</span>
@@ -380,7 +395,7 @@
         <div class="info-block">
             <span class="icon">📐</span>
             <h3>Откуда берётся ДНК?</h3>
-            <p>Анализируем 7 признаков росчерка → 7 критериев ДНК: <strong>риск, скорость, креатив, точность, эмпатия, автономность, вербальность</strong>. Каждая деталь росчерка — характер твоего будущего агента.</p>
+            <p>Анализируем 7 признаков росчерка → 7 критериев ДНК: <strong>риск, скорость, креатив, точность, эмпатия, автономность, вербальность</strong>. Каждая деталь росчерка — характер твоего будущего цифрового помощника.</p>
         </div>
     </div>
 
@@ -395,11 +410,12 @@
     </div>
 
     <div class="canvas-wrapper">
-        <canvas id="signCanvas" width="500" height="500"></canvas>
-    </div>
+            <canvas id="signCanvas" width="500" height="500"></canvas>
+        </div>
+        <button class="btn-clear" id="clearBtn" type="button" disabled title="Очистить поле">🗑 Очистить</button>
     <div class="canvas-hint">✍️ Нарисуйте росчерк — это будет ДНК вашего цифрового помощника</div>
 
-    <button class="btn-primary" id="createBtn">✨ Создать AIID</button>
+        <button class="btn-primary" id="createBtn">✨ Создать AIID</button>
 
     <!-- Результат с матричным стилем -->
     <div id="result">
@@ -456,6 +472,56 @@
 
         let selectedGenre = ALL_GENRES[0];
         let signaturePoints = [];
+
+// === HMAC-РЕГИСТРАЦИЯ УСТРОЙСТВА ===
+async function ensureDeviceRegistered() {
+    let deviceId = localStorage.getItem('deviceId');
+    let deviceSig = localStorage.getItem('deviceSig');
+
+    if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).slice(2,11) + Date.now().toString(36);
+        localStorage.setItem('deviceId', deviceId);
+    }
+
+    if (!deviceSig) {
+        try {
+            const res = await apiFetch('/api/register_device', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({device_id: deviceId})
+            });
+            const data = await res.json();
+            if (data.sig) {
+                deviceSig = data.sig;
+                localStorage.setItem('deviceSig', deviceSig);
+            }
+        } catch(e) {
+            console.error('register_device failed:', e);
+        }
+    }
+
+    return {deviceId, deviceSig};
+}
+
+async function apiFetch(url, options) {
+    options = options || {};
+    const reg = await ensureDeviceRegistered();
+    options.headers = Object.assign({}, options.headers || {}, {
+        'X-Device-ID': reg.deviceId,
+        'X-Device-Sig': reg.deviceSig || ''
+    });
+    return fetch(url, options);
+}
+
+(async function bootDevice() {
+    try {
+        const reg = await ensureDeviceRegistered();
+        console.log('[HMAC] device registered:', reg.deviceId, 'sig:', reg.deviceSig ? reg.deviceSig.slice(0, 12) + '...' : 'EMPTY');
+    } catch(e) {
+        console.error('[HMAC] boot failed:', e);
+    }
+})();
+
         let isDrawing = false;
 
         const grid = document.getElementById('genreGrid');
@@ -463,6 +529,18 @@
         const ctx = canvas.getContext('2d');
         const ownerInput = document.getElementById('ownerName');
         const createBtn = document.getElementById('createBtn');
+            // === Очистка canvas ===
+            const clearBtn = document.getElementById('clearBtn');
+            clearBtn.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                signaturePoints = [];
+                isDrawing = false;
+                clearBtn.disabled = true;
+                createBtn.textContent = '⚒️ Сгенерировать AIID';
+            });
+
         const resultDiv = document.getElementById('result');
         const resultContent = document.getElementById('resultContent');
         const demoCountSpan = document.getElementById('demoCount');
@@ -515,6 +593,7 @@
         function startDrawing(e) {
             e.preventDefault();
             isDrawing = true;
+            if (clearBtn) clearBtn.disabled = false;
             const { x, y } = getCanvasCoords(e);
             ctx.beginPath();
             ctx.moveTo(x, y);
@@ -594,7 +673,7 @@
             btn.disabled = true;
             btn.textContent = '⏳ Генерация...';
 
-            const name = ownerInput.value.trim() || 'Агент';
+            const name = ownerInput.value.trim() || 'Помощник';
             if (signaturePoints.length < 5) {
                 alert('✍️ Сначала нарисуйте росчерк.');
                 btn.disabled = false;
@@ -610,7 +689,7 @@
 
             try {
                 // 1. Получаем полный AIID (обычный запрос)
-                const response = await fetch('/api/generate_free', {
+                const response = await apiFetch('/api/generate_free', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

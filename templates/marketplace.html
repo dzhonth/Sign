@@ -305,6 +305,56 @@ const DNA_LABELS = { risk:'Риск', speed:'Скорость', creativity:'Кр
 
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('deviceId');
+
+// === HMAC-РЕГИСТРАЦИЯ УСТРОЙСТВА ===
+async function ensureDeviceRegistered() {
+    let deviceId = localStorage.getItem('deviceId');
+    let deviceSig = localStorage.getItem('deviceSig');
+
+    if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).slice(2,11) + Date.now().toString(36);
+        localStorage.setItem('deviceId', deviceId);
+    }
+
+    if (!deviceSig) {
+        try {
+            const res = await apiFetch('/api/register_device', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({device_id: deviceId})
+            });
+            const data = await res.json();
+            if (data.sig) {
+                deviceSig = data.sig;
+                localStorage.setItem('deviceSig', deviceSig);
+            }
+        } catch(e) {
+            console.error('register_device failed:', e);
+        }
+    }
+
+    return {deviceId, deviceSig};
+}
+
+async function apiFetch(url, options) {
+    options = options || {};
+    const reg = await ensureDeviceRegistered();
+    options.headers = Object.assign({}, options.headers || {}, {
+        'X-Device-ID': reg.deviceId,
+        'X-Device-Sig': reg.deviceSig || ''
+    });
+    return fetch(url, options);
+}
+
+(async function bootDevice() {
+    try {
+        const reg = await ensureDeviceRegistered();
+        console.log('[HMAC] device registered:', reg.deviceId, 'sig:', reg.deviceSig ? reg.deviceSig.slice(0, 12) + '...' : 'EMPTY');
+    } catch(e) {
+        console.error('[HMAC] boot failed:', e);
+    }
+})();
+
   if (!id) {
     id = 'dev_' + Math.random().toString(36).slice(2,11);
     localStorage.setItem('deviceId', id);
@@ -448,7 +498,7 @@ async function openModal(a){
   setTimeout(()=>{ dg.querySelectorAll('.dna-fill').forEach(el=>{ el.style.width = el.dataset.v+'%'; }); }, 100);
 
   try {
-    const res = await fetch('/api/check_purchase', {
+    const res = await apiFetch('/api/check_purchase', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ device_id: DEVICE_ID, helper_id: a.id })
@@ -464,7 +514,7 @@ async function openModal(a){
 
   document.getElementById('hireBtn').onclick = async () => {
     try {
-      const res = await fetch('/api/create_payment', {
+      const res = await apiFetch('/api/create_payment', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ device_id: DEVICE_ID, helper_id: a.id })
@@ -479,7 +529,7 @@ async function openModal(a){
     const btn = document.getElementById('showFullBtn');
     btn.textContent = '⏳ Загрузка...';
     try {
-      const res = await fetch('/api/get_full_aiid', {
+      const res = await apiFetch('/api/get_full_aiid', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ device_id: DEVICE_ID, helper_id: a.id })
