@@ -154,6 +154,7 @@ body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,s
 @media (max-width:768px){
   .bottom-nav{padding:18px 8px 8px; gap:2px; margin-top:40px;}
 }
+
 </style>
 </head>
 <body>
@@ -210,6 +211,11 @@ body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,s
     </div>
 
     <div class="dna-grid" id="dnaGrid"></div>
+
+    <div class="panel" style="margin-top:20px">
+      <span class="label">📋 Описание</span>
+      <div class="txt" id="modalDescription" style="white-space:pre-line">—</div>
+    </div>
 
     <div class="panel" style="margin-top:8px">
       <span class="label">🧠 Характер (SOUL)</span>
@@ -420,7 +426,10 @@ TIERS.forEach(function(tier){
     card.innerHTML = '<div class="agent-avatar">' + av + '</div>'
       + '<div class="agent-name">' + agent.name + '</div>'
       + '<div class="agent-group">' + agent.group + '</div>'
-      + '<div class="agent-role" style="white-space:pre-line">' + (agent.description || agent.short || '') + '</div>'
+            + '<div class="agent-role">'
+        + '<span style="color:var(--gold)">' + ((agent.description || agent.short || '').split('?')[0] + '?') + '</span>'
+        + '<span style="display:block; color:#00ff88; font-size:.85rem; margin-top:6px; font-style:italic;">Жми на карточку. Сделай помощника своим.</span>'
+      + '</div>'
       + '<div class="agent-price">' + agent.price_rub.toLocaleString('ru-RU') + ' ₽</div>'
 ;
     card.addEventListener('click', function(){ openModal(agent); });
@@ -476,6 +485,7 @@ async function openModal(a){
     '<div class="dna-bar"><div class="dna-label">' + DNA_LABELS[k] + '<span>' + v + '/10</span></div>'
     + '<div class="dna-track"><div class="dna-fill" data-v="' + (v*10) + '"></div></div></div>'
   ).join('');
+  document.getElementById('modalDescription').textContent = a.description || a.short || '';
   document.getElementById('modalSoul').textContent = a.soul;
   document.getElementById('modalFunctions').innerHTML = a.functions.map(f=>'<li>'+f+'</li>').join('');
   document.getElementById('modalStrengths').innerHTML = a.strengths.map(f=>'<li>'+f+'</li>').join('');
