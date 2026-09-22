@@ -485,7 +485,7 @@ async function ensureDeviceRegistered() {
 
     if (!deviceSig) {
         try {
-            const res = await apiFetch('/api/register_device', {
+            const res = await fetch('/api/register_device', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({device_id: deviceId})
