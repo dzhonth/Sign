@@ -78,9 +78,9 @@
 </div>
 
 <script id="team-data" type="application/json">{
-  {% for m in members %}"{{ m.code }}": {"code": {{ m.code | tojson }}, "avatar": {{ m.avatar | tojson }}, "aiid": {{ m.aiid | tojson }}}{% if not loop.last or advisors %},{% endif %}
+  {% for m in members %}"{{ m.code }}": {"code": {{ m.code | tojson }}, "name": {{ m.name | tojson }}, "role": {{ m.role | tojson }}, "avatar": {{ m.avatar | tojson }}, "tasks": {{ m.tasks | tojson }}, "responsibility": {{ m.responsibility | tojson }}, "aiid": {{ m.aiid | tojson }}}{% if not loop.last or advisors %},{% endif %}
   {% endfor %}
-  {% for a in advisors %}"{{ a.code }}": {"code": {{ a.code | tojson }}, "avatar": {{ a.avatar | tojson }}, "aiid": {{ a.aiid | tojson }}}{% if not loop.last %},{% endif %}
+  {% for a in advisors %}"{{ a.code }}": {"code": {{ a.code | tojson }}, "name": {{ a.name | tojson }}, "role": {{ a.role | tojson }}, "avatar": {{ a.avatar | tojson }}, "tasks": {{ a.tasks | tojson }}, "responsibility": {{ a.responsibility | tojson }}, "aiid": {{ a.aiid | tojson }}}{% if not loop.last %},{% endif %}
   {% endfor %}
 }</script>
 
@@ -136,6 +136,12 @@ function openAIID(code){
       + '<div><span>Статус</span><b>' + esc(a.status || '—') + '</b></div>'
     + '</div>'
 
+    + (entry.tasks && entry.tasks.length
+        ? '<div class="aiid-block"><div class="aiid-block-title">Задачи</div>' + list(entry.tasks) + '</div>'
+        : '')
+    + (entry.responsibility
+        ? '<div class="aiid-block"><div class="aiid-block-title">Ответственность</div><p>' + esc(entry.responsibility) + '</p></div>'
+        : '')
     + '<div class="aiid-block"><div class="aiid-block-title">ДНК</div>' + dnaRows + '</div>'
     + '<div class="aiid-block"><div class="aiid-block-title">Характер</div><p>' + esc(a.character || '—') + '</p></div>'
     + '<div class="aiid-block"><div class="aiid-block-title">Функции</div>' + list(a.functions) + '</div>'

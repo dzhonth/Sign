@@ -6,20 +6,8 @@
 
 <h1 class="page-title">⚗️ Eidos Lab</h1>
 <p style="text-align:center; color:#d6e5f0; font-style:italic; margin-bottom:36px; text-shadow:0 0 8px rgba(214,229,240,.5), 0 0 20px rgba(180,220,255,.3);">Лаборатория концептов</p>
-
-<h2 class="section">Что это</h2>
-<p>Лаборатория — это раздел, где живут концепты ИИ-агентов, которые ещё не вышли на витрину. Здесь мы показываем, что строим будущее. Некоторые концепты уже реализованы (бейдж <strong style="color:#00ff88;">Complete</strong>), некоторые — в разработке (бейдж <strong style="color:#00d4ff;">Concept</strong>).</p>
-
-<h2 class="section">Состав лаборатории</h2>
-
 <div class="lab-grid" id="labGrid">
-  <div class="lab-card lab-sign" onclick="window.location.href='https://signai.space'">
-    <div class="lab-avatar"><img src="/static/avatars/eidos/sign.jpg" alt="SIGN" onerror="this.parentNode.innerHTML='🔨'"></div>
-    <div class="lab-badge badge-complete">Complete</div>
-    <div class="lab-name">SIGN</div>
-    <div class="lab-role">Кузница цифровых помощников</div>
-    <div class="lab-price">Перейти на SIGN →</div>
-  </div>
+
 </div>
 
 <h2 class="section">Философия лаборатории</h2>
@@ -54,6 +42,10 @@
       </div>
     </div>
     <div class="dna-grid" id="dnaGrid"></div>
+    <div class="panel" id="modalTechBlock" style="display:none; margin-top:8px">
+      <span class="label">⚙️ Технический стек</span>
+      <div class="txt" id="modalTechStack">—</div>
+    </div>
     <div class="panel" style="margin-top:8px">
       <span class="label">🧠 Характер (SOUL)</span>
       <div class="txt" id="modalSoul">—</div>
@@ -64,13 +56,7 @@
       <div class="panel"><span class="label">📜 Контракт</span><div class="txt" id="modalContract">—</div></div>
       <div class="panel"><span class="label">⚠️ Ограничения</span><ul id="modalLimits"></ul></div>
     </div>
-    <div id="lockedBlock">
-      <div style="margin-top:24px">
-        <span class="label" style="color:var(--gold); font-weight:600; font-size:.75rem; text-transform:uppercase; letter-spacing:3px; display:block; margin-bottom:12px">📖 Промпт (полная версия)</span>
-        <div class="prompt-blur"><div class="blur-inner">🔒 Промпт доступен после оплаты</div></div>
-      </div>
-    </div>
-    <button class="btn-hire" id="hireBtn"><span>🔓 Разблокировать за <span id="hirePrice">—</span></span></button>
+
   </div>
 </div>
 
@@ -91,16 +77,31 @@ const DEVICE_ID = (function(){
 
 AGENTS.forEach(function(agent){
   var card = document.createElement('div');
-  card.className = 'lab-card';
+  var isComplete = (agent.badge === 'complete');
+  card.className = 'lab-card' + (isComplete ? ' lab-sign' : '');
   var avatarHtml = agent.avatar
     ? '<div class="lab-avatar"><img src="/static/avatars/eidos/' + agent.avatar + '" alt="' + agent.name + '" loading="lazy" onerror="this.parentNode.innerHTML=\'🧬\'"></div>'
     : '<div class="lab-avatar">🧬</div>';
+  var badgeHtml = isComplete
+    ? '<div class="lab-badge badge-complete">Complete</div>'
+    : '<div class="lab-badge badge-concept">Concept</div>';
+  var priceHtml = isComplete
+    ? '<div class="lab-price">Перейти на SIGN →</div>'
+    : '';
+  var techHtml = agent.tech_stack
+    ? '<div class="lab-tech">⚙️ ' + agent.tech_stack + '</div>'
+    : '';
   card.innerHTML = avatarHtml
-    + '<div class="lab-badge badge-concept">Concept</div>'
+    + badgeHtml
     + '<div class="lab-name">' + agent.name + '</div>'
     + '<div class="lab-role">' + (agent.role || agent.short || '') + '</div>'
-    + '<div class="lab-price">от ' + agent.price_rub.toLocaleString('ru-RU') + ' ₽</div>';
-  card.addEventListener('click', function(){ openModal(agent); });
+    + techHtml
+    + priceHtml;
+  if (isComplete && agent.link) {
+    card.addEventListener('click', function(){ window.location.href = agent.link; });
+  } else {
+    card.addEventListener('click', function(){ openModal(agent); });
+  }
   grid.appendChild(card);
 });
 
@@ -118,30 +119,27 @@ function openModal(a){
       + '<div class="dna-track"><div class="dna-fill" data-v="' + (v*10) + '"></div></div></div>';
   }).join('');
 
+  var techBlock = document.getElementById('modalTechBlock');
+  var techValue = document.getElementById('modalTechStack');
+  if (techBlock && techValue) {
+    if (a.tech_stack) {
+      techValue.textContent = a.tech_stack;
+      techBlock.style.display = 'block';
+    } else {
+      techBlock.style.display = 'none';
+    }
+  }
+
   document.getElementById('modalSoul').textContent = a.soul;
   document.getElementById('modalFunctions').innerHTML = a.functions.map(function(f){ return '<li>'+f+'</li>'; }).join('');
   document.getElementById('modalStrengths').innerHTML = a.strengths.map(function(f){ return '<li>'+f+'</li>'; }).join('');
   document.getElementById('modalContract').textContent = a.contract;
   document.getElementById('modalLimits').innerHTML = a.limits.map(function(f){ return '<li>'+f+'</li>'; }).join('');
-  document.getElementById('hirePrice').textContent = a.price_rub.toLocaleString('ru-RU') + ' ₽';
 
   modal.classList.add('active');
   setTimeout(function(){
     dg.querySelectorAll('.dna-fill').forEach(function(el){ el.style.width = el.dataset.v + '%'; });
   }, 100);
-
-  document.getElementById('hireBtn').onclick = async function(){
-    try {
-      var res = await fetch('/api/create_payment', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ device_id: DEVICE_ID, helper_id: a.id })
-      });
-      var data = await res.json();
-      if (data.confirmation_url) { window.location.href = data.confirmation_url; }
-      else { alert('Ошибка: ' + (data.error || 'неизвестная')); }
-    } catch(e){ alert('Сервер недоступен'); }
-  };
 }
 
 closeBtn.addEventListener('click', function(){ modal.classList.remove('active'); });
@@ -197,6 +195,8 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape') modal.cla
   .lab-grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;}
   .lab-card{padding:18px 14px;}
 }
+
+.lab-tech{color:#8888aa; font-size:.72rem; margin:8px 0 6px; line-height:1.5; letter-spacing:.3px; word-break:break-word; opacity:.85;}
 </style>
 
 {% endblock %}

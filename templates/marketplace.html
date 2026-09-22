@@ -305,6 +305,13 @@ const DNA_LABELS = { risk:'Риск', speed:'Скорость', creativity:'Кр
 
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('deviceId');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).slice(2,11);
+    localStorage.setItem('deviceId', id);
+  }
+  return id;
+})();
+
 
 // === HMAC-РЕГИСТРАЦИЯ УСТРОЙСТВА ===
 async function ensureDeviceRegistered() {
@@ -318,7 +325,7 @@ async function ensureDeviceRegistered() {
 
     if (!deviceSig) {
         try {
-            const res = await apiFetch('/api/register_device', {
+            const res = await fetch('/api/register_device', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({device_id: deviceId})
@@ -355,12 +362,6 @@ async function apiFetch(url, options) {
     }
 })();
 
-  if (!id) {
-    id = 'dev_' + Math.random().toString(36).slice(2,11);
-    localStorage.setItem('deviceId', id);
-  }
-  return id;
-})();
 
 function animateCount(el, target){
   let cur=0; const step=Math.max(1,Math.round(target/30));
@@ -419,7 +420,7 @@ TIERS.forEach(function(tier){
     card.innerHTML = '<div class="agent-avatar">' + av + '</div>'
       + '<div class="agent-name">' + agent.name + '</div>'
       + '<div class="agent-group">' + agent.group + '</div>'
-      + '<div class="agent-role">' + agent.short + '</div>'
+      + '<div class="agent-role" style="white-space:pre-line">' + (agent.description || agent.short || '') + '</div>'
       + '<div class="agent-price">' + agent.price_rub.toLocaleString('ru-RU') + ' ₽</div>'
 ;
     card.addEventListener('click', function(){ openModal(agent); });
@@ -475,7 +476,6 @@ async function openModal(a){
     '<div class="dna-bar"><div class="dna-label">' + DNA_LABELS[k] + '<span>' + v + '/10</span></div>'
     + '<div class="dna-track"><div class="dna-fill" data-v="' + (v*10) + '"></div></div></div>'
   ).join('');
-
   document.getElementById('modalSoul').textContent = a.soul;
   document.getElementById('modalFunctions').innerHTML = a.functions.map(f=>'<li>'+f+'</li>').join('');
   document.getElementById('modalStrengths').innerHTML = a.strengths.map(f=>'<li>'+f+'</li>').join('');
