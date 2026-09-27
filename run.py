@@ -746,6 +746,19 @@ def team():
         advisors=team_data.get('advisors', [])
     )
 
+@app.route('/city')
+def city():
+    """Страница Совета Города: триада + дополняющие."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    city_data = data.get('city', {})
+    return render_template(
+        'city.html',
+        triad=city_data.get('triad', []),
+        extra=city_data.get('extra', [])
+    )
+
 # ============================================================
 # === ОБЩЕЕ: вебхук ЮKassa (обрабатывает marketplace и sign) ===
 # ============================================================
