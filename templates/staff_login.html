@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+{% block title %}Вход в Штаб — Eidos Universe{% endblock %}
+{% block nav_chat %}{% endblock %}
+
+{% block content %}
+
+<div class="login-wrapper">
+  <h1 class="page-title login-title">Штаб Eidos</h1>
+  <p class="login-sub">Введите пароль для доступа</p>
+
+  {% if error %}
+  <div class="login-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="/staff/login" class="login-form">
+    <input
+      type="password"
+      name="password"
+      class="login-input"
+      placeholder="Пароль"
+      autofocus
+      required
+    >
+    <button type="submit" class="login-btn">Войти</button>
+  </form>
+</div>
+
+<style>
+.login-wrapper{
+  max-width:420px; margin:80px auto;
+  background:linear-gradient(160deg, rgba(0,255,136,.04), rgba(255,215,0,.02));
+  border:1px solid var(--border); border-radius:24px;
+  padding:48px 40px 40px;
+  text-align:center;
+}
+.login-title{
+  text-align:center !important;
+  font-size:1.8rem !important;
+  letter-spacing:6px;
+  margin-bottom:12px;
+}
+.login-sub{
+  color:#9090a8; font-style:italic; margin-bottom:32px;
+}
+.login-error{
+  background:rgba(255,60,60,.08);
+  border:1px solid rgba(255,60,60,.3);
+  color:#ff8888;
+  padding:10px 16px; border-radius:10px;
+  margin-bottom:20px; font-size:.9rem;
+}
+.login-form{ display:flex; flex-direction:column; gap:16px; }
+.login-input{
+  background:#0d0d18; border:1px solid var(--border);
+  border-radius:12px; padding:14px 18px;
+  color:#d0d0e0; font-family:inherit; font-size:1rem;
+  outline:none; transition:border-color .3s;
+  text-align:center; letter-spacing:2px;
+}
+.login-input:focus{ border-color:var(--emerald, #00ff88); box-shadow:0 0 20px rgba(0,255,136,.2); }
+.login-btn{
+  background:linear-gradient(135deg, #00ff88, #00d4ff);
+  color:#0a0a0f; border:none;
+  border-radius:12px; padding:14px 24px;
+  font-weight:700; font-size:.95rem; letter-spacing:2px;
+  text-transform:uppercase; cursor:pointer;
+  transition:all .3s;
+  font-family:'Orbitron', sans-serif;
+}
+.login-btn:hover{ box-shadow:0 0 24px rgba(0,255,136,.5); }
+</style>
+
+{% endblock %}

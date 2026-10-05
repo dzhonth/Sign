@@ -2,7 +2,8 @@ import uuid
 import requests
 import base64
 import json
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from functools import wraps
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -21,6 +22,10 @@ import hmac
 import hashlib
 
 app = Flask(__name__, template_folder='templates')
+app.secret_key = os.getenv('SECRET_KEY') or os.getenv('STAFF_PASSWORD') or 'fallback-change-me'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 7  # 7 дней
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 YOOKASSA_SHOP_ID = os.getenv('YOOKASSA_SHOP_ID')
 YOOKASSA_SECRET_KEY = os.getenv('YOOKASSA_SECRET_KEY')
@@ -746,6 +751,645 @@ def team():
         advisors=team_data.get('advisors', [])
     )
 
+# === STAFF ROUTES ===
+def staff_required(f):
+    """Декоратор: доступ только для авторизованных через STAFF_PASSWORD."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get('staff_authenticated'):
+            return redirect('/staff/login')
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@app.route('/staff/login', methods=['GET', 'POST'])
+def staff_login():
+    """Страница входа в Штаб."""
+    error = None
+    if request.method == 'POST':
+        password = (request.form.get('password') or '').strip()
+        expected = os.getenv('STAFF_PASSWORD', '')
+        if password and expected and password == expected:
+            session['staff_authenticated'] = True
+            session.permanent = True
+            return redirect('/staff')
+        error = 'Неверный пароль'
+    return render_template('staff_login.html', error=error)
+
+
+@app.route('/staff/logout')
+def staff_logout():
+    """Выход из Штаба."""
+    session.pop('staff_authenticated', None)
+    return redirect('/staff/login')
+
+
+# === STAFF API ===
+
+CODE_KEYWORDS = [
+    'код', 'баг', 'api', 'сервер', 'база', 'оплата', 'техника', 'деплой',
+    'фронт', 'бэк', 'бек', 'endpoint', 'роут', 'sql', 'python', 'flask',
+    'js', 'javascript', 'nginx', 'gunicorn', 'redis', 'ssl', 'домен',
+    'безопасность', 'уязвимость', 'тест', 'тестирование', 'пароль', 'токен',
+]
+
+
+def staff_detect_code_topic(text):
+    if not text:
+        return False, ''
+    low = text.lower()
+    found = [kw for kw in CODE_KEYWORDS if kw in low]
+    return (len(found) > 0), ', '.join(found)
+
+
+# Алиасы: русский + латиница → agent_id
+# Алиасы для dev-окна (только Инженер и Скептик)
+STAFF_DEV_ALIASES = {
+    'инженер': 'engineer', 'engineer': 'engineer',
+    'тестировщик': 'skeptic', 'скептик': 'skeptic', 'skeptic': 'skeptic',
+}
+
+
+STAFF_AGENT_ALIASES = {
+    'пикч': 'pikch', 'пикчаров': 'pikch', 'pikch': 'pikch', 'pikcharov': 'pikch',
+    'гармония': 'harmony', 'harmony': 'harmony',
+    'архитектор': 'architect', 'архитектор инноваций': 'architect', 'architect': 'architect',
+    'орбита': 'orbit', 'астра': 'orbit', 'orbit': 'orbit',
+    'призрак': 'ghost', 'ghost': 'ghost',
+    'инженер': 'engineer', 'engineer': 'engineer',
+    'тестировщик': 'skeptic', 'скептик': 'skeptic', 'skeptic': 'skeptic',
+    'система': 'system', 'system': 'system',
+}
+
+
+def staff_parse_agent_mention(message):
+    """Парсит *agent из начала сообщения.
+    Принимает русские и латинские варианты.
+    Возвращает (agent_id, clean_text) или (None, original)."""
+    if not message or not message.startswith('*'):
+        return None, message
+
+    comma_idx = message.find(',')
+    if comma_idx == -1:
+        return None, message
+
+    raw_slug = message[1:comma_idx].strip().lower()
+    if not raw_slug:
+        return None, message
+
+    agent_id = STAFF_AGENT_ALIASES.get(raw_slug)
+    if not agent_id:
+        return None, message
+
+    clean = message[comma_idx + 1:].strip()
+    return agent_id, clean
+
+
+def staff_parse_dev_mention(message):
+    """Парсит *agent в dev-окне. Только engineer или skeptic."""
+    if not message or not message.startswith('*'):
+        return None, message
+
+    comma_idx = message.find(',')
+    if comma_idx == -1:
+        return None, message
+
+    raw_slug = message[1:comma_idx].strip().lower()
+    if not raw_slug:
+        return None, message
+
+    agent_id = STAFF_DEV_ALIASES.get(raw_slug)
+    if not agent_id:
+        return None, message
+
+    clean = message[comma_idx + 1:].strip()
+    return agent_id, clean
+
+
+def staff_get_agents():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    s = data.get('staff', {})
+    members = {m['id']: m for m in s.get('members', [])}
+    sequence = s.get('sequence', [])
+    return members, sequence
+
+
+def staff_build_system_prompt(agent):
+    aiid = agent.get('aiid', {})
+    return aiid.get('prompt', aiid.get('character', ''))
+
+
+def staff_call_agent(agent, messages, user_message):
+    system_prompt = staff_build_system_prompt(agent)
+    provider = agent.get('api_provider', 'deepseek')
+
+    full_messages = list(messages) + [{'role': 'user', 'content': user_message}]
+
+    if provider == 'gigachat':
+        return call_gigachat(system_prompt, full_messages, temperature=0.7, max_tokens=400)
+    else:
+        api_key = os.getenv('DEEPSEEK_API_KEY')
+        if not api_key:
+            raise RuntimeError('DEEPSEEK_API_KEY not configured')
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {api_key}'
+        }
+        payload = {
+            'model': 'deepseek-chat',
+            'messages': [{'role': 'system', 'content': system_prompt}] + full_messages,
+            'temperature': 0.7,
+            'max_tokens': 400,
+            'stream': False
+        }
+        r = requests.post(
+            'https://api.deepseek.com/v1/chat/completions',
+            json=payload, headers=headers, timeout=60
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f'DeepSeek error: {r.status_code} {r.text[:200]}')
+        return r.json()['choices'][0]['message']['content']
+
+
+def staff_get_messages(session_id):
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    q = "SELECT author, agent_id, content, order_num, window_type FROM staff_messages WHERE session_id = ? ORDER BY order_num ASC"
+    c.execute(q, (session_id,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def staff_save_message(session_id, author, agent_id, content, order_num, window_type='staff'):
+    conn = sqlite3.connect('sign.db')
+    c = conn.cursor()
+    q = "INSERT INTO staff_messages (session_id, author, agent_id, content, order_num, window_type) VALUES (?, ?, ?, ?, ?, ?)"
+    c.execute(q, (session_id, author, agent_id, content, order_num, window_type))
+    conn.commit()
+    conn.close()
+
+
+@app.route('/api/staff/session', methods=['POST'])
+@staff_required
+def staff_session_create():
+    data = request.json or {}
+    topic = (data.get('topic') or '').strip()
+    if not topic:
+        return jsonify({'error': 'topic required'}), 400
+    if len(topic) > 2000:
+        return jsonify({'error': 'topic too long'}), 400
+
+    is_code, keywords = staff_detect_code_topic(topic)
+
+    conn = sqlite3.connect('sign.db')
+    c = conn.cursor()
+    q = "INSERT INTO staff_sessions (topic, window_type, is_code_topic, topic_keywords, current_turn) VALUES (?, 'staff', ?, ?, 0)"
+    c.execute(q, (topic, 1 if is_code else 0, keywords))
+    conn.commit()
+    session_id = c.lastrowid
+    conn.close()
+
+    staff_save_message(session_id, 'Основатель', None, topic, 1, 'staff')
+
+    return jsonify({
+        'status': 'ok',
+        'session_id': session_id,
+        'is_code_topic': is_code,
+        'keywords': keywords,
+        'current_turn': 0
+    })
+
+
+@app.route('/api/staff/turn/<int:session_id>', methods=['POST'])
+@staff_required
+def staff_turn(session_id):
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id, topic, current_turn, is_code_topic, status FROM staff_sessions WHERE id = ?", (session_id,))
+    session = c.fetchone()
+    conn.close()
+
+    if not session:
+        return jsonify({'error': 'session not found'}), 404
+    if session['status'] == 'closed':
+        return jsonify({'status': 'closed', 'message': 'Сессия закрыта'}), 400
+
+    members, sequence = staff_get_agents()
+    if not sequence:
+        return jsonify({'error': 'no sequence'}), 500
+
+    current_turn = session['current_turn']
+    is_code = session['is_code_topic'] == 1
+
+    while current_turn < len(sequence):
+        agent_id = sequence[current_turn]
+        agent = members.get(agent_id)
+        if not agent:
+            current_turn += 1
+            continue
+
+        if agent_id in ('engineer', 'skeptic') and not is_code:
+            staff_save_message(session_id, agent['name'], agent_id, '(пропущен — тема не про код)', current_turn + 2, 'staff')
+            current_turn += 1
+            continue
+
+        try:
+            history = staff_get_messages(session_id)
+            api_messages = []
+            for h in history:
+                role = 'user' if h['author'] == 'Основатель' else 'assistant'
+                api_messages.append({'role': role, 'content': h['content']})
+            last_user = ''
+            for h in reversed(history):
+                if h['author'] == 'Основатель':
+                    last_user = h['content']
+                    break
+
+            turn_context = (
+                f"\n\n[КОНТЕКСТ ШТАБА]\n"
+                f"Тема Штаба: {session['topic']}\n"
+                f"Твой ход: {current_turn + 1} из {len(sequence)}\n"
+                f"Ты отвечаешь как {agent['name']}.\n"
+                f"Отвечай коротко, 1-2 предложения, по своей роли.\n"
+                f"Не повторяй других. Не задавай вопросы — давай свой взгляд."
+            )
+
+            # Retry: 2 попытки
+            response = None
+            last_error = ''
+            for attempt in range(2):
+                try:
+                    response = staff_call_agent(agent, api_messages[:-1], last_user + turn_context)
+                    break
+                except Exception as e:
+                    last_error = str(e)[:150]
+                    print(f'[STAFF] {agent["name"]} attempt {attempt+1} failed: {last_error}')
+                    if attempt == 0:
+                        import time as _t
+                        _t.sleep(2)
+                    continue
+
+            if response is None:
+                # Все попытки провалились — сохраняем как ошибку, пропускаем агента
+                staff_save_message(
+                    session_id,
+                    agent['name'],
+                    agent_id,
+                    f'(ошибка API: {last_error})',
+                    current_turn + 2,
+                    'staff'
+                )
+                current_turn += 1
+                conn = sqlite3.connect('sign.db')
+                c = conn.cursor()
+                c.execute("UPDATE staff_sessions SET current_turn = ? WHERE id = ?",
+                          (current_turn, session_id))
+                conn.commit()
+                conn.close()
+                continue
+        except Exception as e:
+            return jsonify({'error': f'API error: {str(e)[:200]}'}), 500
+
+        staff_save_message(session_id, agent['name'], agent_id, response, current_turn + 2, 'staff')
+        current_turn += 1
+
+        conn = sqlite3.connect('sign.db')
+        c = conn.cursor()
+        c.execute("UPDATE staff_sessions SET current_turn = ? WHERE id = ?", (current_turn, session_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'status': 'ok',
+            'agent_id': agent_id,
+            'agent_name': agent['name'],
+            'api_provider': agent.get('api_provider', ''),
+            'avatar': agent.get('avatar'),
+            'content': response,
+            'current_turn': current_turn,
+            'total_turns': len(sequence),
+            'is_final': current_turn >= len(sequence)
+        })
+
+    conn = sqlite3.connect('sign.db')
+    c = conn.cursor()
+    c.execute("UPDATE staff_sessions SET status = 'awaiting_decision' WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'status': 'awaiting_decision',
+        'current_turn': current_turn,
+        'total_turns': len(sequence)
+    })
+
+
+@app.route('/api/staff/close/<int:session_id>', methods=['POST'])
+@staff_required
+def staff_close(session_id):
+    conn = sqlite3.connect('sign.db')
+    c = conn.cursor()
+    c.execute("UPDATE staff_sessions SET status = 'closed', ended_at = CURRENT_TIMESTAMP WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok', 'message': 'Сессия закрыта'})
+
+
+@app.route('/api/staff/continue/<int:session_id>', methods=['POST'])
+@staff_required
+def staff_continue(session_id):
+    data = request.json or {}
+    comment = (data.get('comment') or '').strip()
+    if not comment:
+        return jsonify({'error': 'comment required'}), 400
+
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) as cnt FROM staff_messages WHERE session_id = ?", (session_id,))
+    order = c.fetchone()['cnt'] + 1
+    c.execute("UPDATE staff_sessions SET current_turn = 0, status = 'active' WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+    staff_save_message(session_id, 'Основатель', None, comment, order, 'staff')
+    return jsonify({'status': 'ok', 'message': 'Продолжаем', 'order_num': order})
+
+
+@app.route('/api/staff/personal', methods=['POST'])
+@staff_required
+def staff_personal():
+    """Личный диалог: *agent, сообщение."""
+    data = request.json or {}
+    raw = (data.get('message') or '').strip()
+
+    if not raw:
+        return jsonify({'error': 'message required'}), 400
+
+    agent_id, clean_text = staff_parse_agent_mention(raw)
+    if not agent_id:
+        return jsonify({
+            'error': 'Вызовите нужного агента. Формат: *агент, вопрос.',
+            'code': 'no_agent'
+        }), 400
+
+    if not clean_text:
+        return jsonify({
+            'error': 'Добавьте вопрос после имени агента.',
+            'code': 'no_question'
+        }), 400
+
+    members, _ = staff_get_agents()
+    agent = members.get(agent_id)
+    if not agent:
+        return jsonify({'error': 'agent not found'}), 404
+
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id FROM staff_sessions WHERE window_type = 'personal' AND status = 'active' ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
+    if row:
+        session_id = row['id']
+    else:
+        c.execute("INSERT INTO staff_sessions (topic, window_type, status) VALUES (?, 'personal', 'active')", ('Личный диалог',))
+        session_id = c.lastrowid
+    conn.commit()
+    conn.close()
+
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT author, agent_id, content, order_num FROM staff_messages WHERE session_id = ? AND window_type = 'personal' ORDER BY order_num ASC", (session_id,))
+    history = [dict(r) for r in c.fetchall()]
+    c.execute("SELECT COUNT(*) as cnt FROM staff_messages WHERE session_id = ?", (session_id,))
+    order_base = c.fetchone()['cnt']
+    conn.close()
+
+    order_user = order_base + 1
+    staff_save_message(session_id, 'Основатель', None, raw, order_user, 'personal')
+
+    api_messages = []
+    for h in history:
+        role = 'user' if h['author'] == 'Основатель' else 'assistant'
+        api_messages.append({'role': role, 'content': h['content']})
+
+    try:
+        response = staff_call_agent(agent, api_messages, clean_text)
+    except Exception as e:
+        return jsonify({'error': f'API error: {str(e)[:200]}'}), 500
+
+    order_ai = order_user + 1
+    staff_save_message(session_id, agent['name'], agent_id, response, order_ai, 'personal')
+
+    # Инкрементим current_turn (для отображения в истории)
+    conn = sqlite3.connect('sign.db')
+    c = conn.cursor()
+    c.execute("UPDATE staff_sessions SET current_turn = current_turn + 1 WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'status': 'ok',
+        'session_id': session_id,
+        'agent_id': agent_id,
+        'agent_name': agent['name'],
+        'api_provider': agent.get('api_provider', ''),
+        'avatar': agent.get('avatar'),
+        'content': response,
+        'order_num': order_ai
+    })
+
+
+@app.route('/api/staff/personal/history', methods=['GET'])
+@staff_required
+def staff_personal_history():
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id FROM staff_sessions WHERE window_type = 'personal' ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'status': 'ok', 'messages': []})
+
+    session_id = row['id']
+    c.execute("SELECT author, agent_id, content, order_num FROM staff_messages WHERE session_id = ? AND window_type = 'personal' ORDER BY order_num ASC", (session_id,))
+    messages = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    return jsonify({'status': 'ok', 'session_id': session_id, 'messages': messages})
+
+
+@app.route('/api/staff/dev', methods=['POST'])
+@staff_required
+def staff_dev():
+    """Техразработка: *инженер / *тестировщик, сообщение."""
+    data = request.json or {}
+    raw = (data.get('message') or '').strip()
+
+    if not raw:
+        return jsonify({'error': 'message required'}), 400
+
+    agent_id, clean_text = staff_parse_dev_mention(raw)
+    if not agent_id:
+        return jsonify({
+            'error': 'Вызовите нужного агента. Формат: *инженер, вопрос или *тестировщик, вопрос.',
+            'code': 'no_agent'
+        }), 400
+
+    if not clean_text:
+        return jsonify({'error': 'Добавьте вопрос.', 'code': 'no_question'}), 400
+
+    members, _ = staff_get_agents()
+    agent = members.get(agent_id)
+    if not agent:
+        return jsonify({'error': 'agent not found'}), 404
+
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id FROM staff_sessions WHERE window_type = 'dev' AND status = 'active' ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
+    if row:
+        session_id = row['id']
+    else:
+        c.execute("INSERT INTO staff_sessions (topic, window_type, status) VALUES (?, 'dev', 'active')", ('Техразработка',))
+        session_id = c.lastrowid
+    conn.commit()
+    conn.close()
+
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT author, agent_id, content, order_num FROM staff_messages WHERE session_id = ? AND window_type = 'dev' ORDER BY order_num ASC", (session_id,))
+    history = [dict(r) for r in c.fetchall()]
+    c.execute("SELECT COUNT(*) as cnt FROM staff_messages WHERE session_id = ?", (session_id,))
+    order_base = c.fetchone()['cnt']
+    conn.close()
+
+    order_user = order_base + 1
+    staff_save_message(session_id, 'Основатель', None, raw, order_user, 'dev')
+
+    api_messages = []
+    for h in history:
+        role = 'user' if h['author'] == 'Основатель' else 'assistant'
+        api_messages.append({'role': role, 'content': h['content']})
+
+    try:
+        response = staff_call_agent(agent, api_messages, clean_text)
+    except Exception as e:
+        return jsonify({'error': f'API error: {str(e)[:200]}'}), 500
+
+    order_ai = order_user + 1
+    staff_save_message(session_id, agent['name'], agent_id, response, order_ai, 'dev')
+
+    conn = sqlite3.connect('sign.db')
+    c = conn.cursor()
+    c.execute("UPDATE staff_sessions SET current_turn = current_turn + 1 WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'status': 'ok',
+        'session_id': session_id,
+        'agent_id': agent_id,
+        'agent_name': agent['name'],
+        'api_provider': agent.get('api_provider', ''),
+        'avatar': agent.get('avatar'),
+        'content': response,
+        'order_num': order_ai
+    })
+
+
+@app.route('/api/staff/dev/history', methods=['GET'])
+@staff_required
+def staff_dev_history():
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id FROM staff_sessions WHERE window_type = 'dev' ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'status': 'ok', 'messages': []})
+
+    session_id = row['id']
+    c.execute("SELECT author, agent_id, content, order_num FROM staff_messages WHERE session_id = ? AND window_type = 'dev' ORDER BY order_num ASC", (session_id,))
+    messages = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    return jsonify({'status': 'ok', 'session_id': session_id, 'messages': messages})
+
+
+@app.route('/api/staff/sessions', methods=['GET'])
+@staff_required
+def staff_sessions_list():
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id, topic, status, is_code_topic, current_turn, started_at, ended_at FROM staff_sessions ORDER BY started_at DESC LIMIT 50")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return jsonify({'status': 'ok', 'sessions': rows})
+
+
+@app.route('/api/staff/session/<int:session_id>', methods=['GET'])
+@staff_required
+def staff_session_view(session_id):
+    conn = sqlite3.connect('sign.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM staff_sessions WHERE id = ?", (session_id,))
+    session = c.fetchone()
+    conn.close()
+
+    if not session:
+        return jsonify({'error': 'not found'}), 404
+
+    messages = staff_get_messages(session_id)
+    return jsonify({
+        'status': 'ok',
+        'session': dict(session),
+        'messages': messages
+    })
+
+@app.route('/staff')
+@staff_required
+def staff():
+    """Штаб Eidos — три окна диалога."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    staff_data = data.get('staff', {})
+    members = {m['id']: m for m in staff_data.get('members', [])}
+    sequence = staff_data.get('sequence', [])
+
+    # Формируем список для frontend
+    staff_agents = []
+    for aid in sequence:
+        if aid in members:
+            m = members[aid]
+            staff_agents.append({
+                'id': m['id'],
+                'code': m.get('code', ''),
+                'name': m['name'],
+                'role': m.get('role', ''),
+                'api_provider': m.get('api_provider', ''),
+                'turn': m.get('turn', 0),
+                'avatar': m.get('avatar'),
+                'main_phrase': m.get('aiid', {}).get('main_phrase', ''),
+            })
+
+    return render_template('staff.html', staff_agents=staff_agents, sequence=sequence)
+
+
 @app.route('/city')
 def city():
     """Страница Совета Города: триада + дополняющие."""
@@ -758,6 +1402,307 @@ def city():
         triad=city_data.get('triad', []),
         extra=city_data.get('extra', [])
     )
+
+@app.route('/chat')
+def chat():
+    """Страница чата: 32 агента (4 группы × 8)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    # Группы: порядок и метки
+    GROUPS = [
+        {'id': 'lovers',  'label': 'Любители', 'color': '#00c896'},
+        {'id': 'profile', 'label': 'Профи',     'color': '#b8c4d0'},
+        {'id': 'experts', 'label': 'Эксперты',  'color': '#a020f0'},
+        {'id': 'legends', 'label': 'Легенды',   'color': '#ffd700'},
+    ]
+
+    # Собираем всех chat-агентов
+    all_agents = []
+    for a in data.get('agents', []):
+        cg = a.get('chat_group')
+        if not cg:
+            continue
+        # Находим метку и цвет группы
+        group_meta = next((g for g in GROUPS if g['id'] == cg), None)
+        if not group_meta:
+            continue
+        all_agents.append({
+            'id': a['id'],
+            'code': a.get('code', ''),
+            'name': a['name'],
+            'role': a.get('role', ''),
+            'tagline': a.get('tagline', ''),
+            'short': a.get('short', ''),
+            'genre': a.get('genre', ''),
+            'chat_group': cg,
+            'chat_label': group_meta['label'],
+            'group_color': a.get('group_color', group_meta['color']),
+            'limit': a.get('limit', 5),
+            'price': a.get('price', 0),
+            'avatar': a.get('avatar', ''),
+            'main_phrase': a.get('main_phrase', ''),
+            'aiid': {
+                'id': a.get('code', a['id']),
+                'version': '1.0',
+                'date': a.get('date', '2026'),
+                'genre': a.get('genre', ''),
+                'owner': 'Eidos Galaxy xPandify',
+                'type': group_meta['label'],
+                'dna': a.get('dna', {}),
+                'character': a.get('soul', ''),
+                'functions': a.get('functions', []),
+                'communication_rules': a.get('contract', ''),
+                'limits': a.get('limits', []),
+                'strengths': a.get('strengths', []),
+                'main_phrase': a.get('main_phrase', ''),
+            }
+        })
+
+    # Группируем и сортируем внутри групп по id
+    groups_with_agents = []
+    for g in GROUPS:
+        g_agents = sorted(
+            [a for a in all_agents if a['chat_group'] == g['id']],
+            key=lambda x: x['id']
+        )
+        groups_with_agents.append({
+            'id': g['id'],
+            'label': g['label'],
+            'color': g['color'],
+            'agents': g_agents,
+        })
+
+    return render_template(
+        'chat.html',
+        groups=groups_with_agents,
+        chat_agents=all_agents,  # для JSON-данных
+    )
+
+
+# === GIGACHAT API ===
+import time as _time
+
+_gigachat_token_cache = {'token': None, 'expires_at': 0}
+
+def get_gigachat_token():
+    """Возвращает валидный OAuth-токен GigaChat. Обновляет раз в 30 мин."""
+    now = _time.time()
+    if _gigachat_token_cache['token'] and _gigachat_token_cache['expires_at'] > now + 60:
+        return _gigachat_token_cache['token']
+
+    client_secret = os.getenv('GIGACHAT_CLIENT_SECRET', '')
+    if not client_secret:
+        raise ValueError('GIGACHAT_CLIENT_SECRET not configured')
+
+    import uuid as _uuid
+    auth_url = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'RqUID': str(_uuid.uuid4()),
+        'Authorization': f'Bearer {client_secret}'
+    }
+    data = {'scope': 'GIGACHAT_API_PERS'}
+
+    r = requests.post(auth_url, headers=headers, data=data, timeout=45)
+    if r.status_code != 200:
+        raise RuntimeError(f'GigaChat OAuth failed: {r.status_code} {r.text[:200]}')
+
+    result = r.json()
+    token = result['access_token']
+    # GigaChat возвращает expires_at в миллисекундах
+    expires_at = result.get('expires_at', 0) / 1000  # → секунды
+    if not expires_at:
+        expires_at = now + 25 * 60  # fallback: 25 мин
+
+    _gigachat_token_cache['token'] = token
+    _gigachat_token_cache['expires_at'] = expires_at
+    return token
+
+
+def call_gigachat(system_prompt, messages, temperature=0.7, max_tokens=1000):
+    """Вызов GigaChat API. Возвращает строку ответа (как DeepSeek).
+
+    Args:
+        system_prompt: str — system message
+        messages: list — [{role, content}, ...] — история
+        temperature: float
+        max_tokens: int
+
+    Returns:
+        str — ответ ассистента
+    """
+    token = get_gigachat_token()
+
+    chat_url = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions'
+
+    # Формируем полный список сообщений
+    full_messages = [{'role': 'system', 'content': system_prompt}]
+    for m in messages:
+        full_messages.append({
+            'role': m.get('role', 'user'),
+            'content': m.get('content', '')
+        })
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+    payload = {
+        'model': 'GigaChat',
+        'messages': full_messages,
+        'temperature': temperature,
+        'max_tokens': max_tokens
+    }
+
+    r = requests.post(chat_url, headers=headers, json=payload, timeout=90)
+    if r.status_code != 200:
+        raise RuntimeError(f'GigaChat chat failed: {r.status_code} {r.text[:300]}')
+
+    result = r.json()
+    return result['choices'][0]['message']['content']
+
+
+def build_agent_system_prompt(agent_id, user_name=''):
+    """Собирает system prompt для выбранного агента из agents.json."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    for a in data.get('agents', []):
+        if a['id'] == agent_id and a.get('chat_group'):
+            name_line = ''
+            if user_name:
+                name_line = (
+                    f"\n\nВАЖНО: Пользователя зовут {user_name}. "
+                    f"Обращайся к нему по имени, правильно определяй род "
+                    f"(мужской/женский) по имени. Не пиши в стиле '{user_name}(а)' — "
+                    f"это неверно. Если род определить невозможно — используй нейтральные формулировки."
+                )
+            return (
+                f"Ты — {a['name']}, {a['role']}.\n\n"
+                f"ХАРАКТЕР:\n{a.get('soul', '')}\n\n"
+                f"ФУНКЦИИ:\n" + "\n".join(f"- {f}" for f in a.get('functions', [])) + "\n\n"
+                f"ПРАВИЛА ОБЩЕНИЯ:\n{a.get('contract', '')}\n\n"
+                f"ОГРАНИЧЕНИЯ:\n" + "\n".join(f"- {x}" for x in a.get('limits', [])) + "\n\n"
+                f"СИЛЬНЫЕ СТОРОНЫ:\n" + "\n".join(f"- {x}" for x in a.get('strengths', []))
+                + name_line
+            )
+    return "Ты — цифровой помощник."
+
+
+def build_luch_system_prompt():
+    """Собирает system prompt для LUCH из agents.json."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    for a in data.get('agents', []):
+        if a['id'] == 'luch':
+            return (
+                f"Ты — {a['name']}, {a['role']}.\n\n"
+                f"ХАРАКТЕР:\n{a.get('soul', '')}\n\n"
+                f"ФУНКЦИИ:\n" + "\n".join(f"- {f}" for f in a.get('functions', [])) + "\n\n"
+                f"ПРАВИЛА ОБЩЕНИЯ:\n{a.get('contract', '')}\n\n"
+                f"ОГРАНИЧЕНИЯ:\n" + "\n".join(f"- {x}" for x in a.get('limits', [])) + "\n\n"
+                f"СИЛЬНЫЕ СТОРОНЫ:\n" + "\n".join(f"- {x}" for x in a.get('strengths', []))
+            )
+    return "Ты — LUCH, агент света и надежды."
+
+
+@app.route('/api/chat/message', methods=['POST'])
+@limiter.limit("200 per hour")
+def chat_message():
+    """Одно сообщение пользователя → ответ выбранного агента через DeepSeek."""
+    # HMAC-проверка
+    device_id = request.headers.get('X-Device-ID', '')
+    sig = request.headers.get('X-Device-Sig', '')
+    ok, err = check_device_auth(device_id, sig)
+    if not ok:
+        return err
+
+    data = request.json or {}
+    user_message = (data.get('message') or '').strip()
+    agent_id = (data.get('agent_id') or '').strip()
+    user_name = (data.get('user_name') or '').strip()[:50]
+
+    if not user_message:
+        return jsonify({'error': 'message required'}), 400
+    if len(user_message) > 2000:
+        return jsonify({'error': 'message too long (max 2000)'}), 400
+    if not agent_id:
+        return jsonify({'error': 'agent_id required'}), 400
+
+    # Динамическая проверка: agent_id — chat-агент в agents.json
+    agents_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agents.json')
+    with open(agents_path, 'r', encoding='utf-8') as f:
+        agents_data = json.load(f)
+    allowed = {a['id'] for a in agents_data.get('agents', []) if a.get('chat_group')}
+    if agent_id not in allowed:
+        return jsonify({'error': 'unknown agent'}), 404
+
+    # API-ключ
+    api_key = os.getenv('DEEPSEEK_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'API key not configured'}), 500
+
+    # System prompt выбранного агента + имя пользователя
+    system_prompt = build_agent_system_prompt(agent_id, user_name)
+
+    # Вызов DeepSeek
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+    payload = {
+        'model': 'deepseek-chat',
+        'messages': [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_message}
+        ],
+        'temperature': 0.7,
+        'max_tokens': 1000,
+        'stream': False
+    }
+
+    try:
+        resp = requests.post(
+            'https://api.deepseek.com/v1/chat/completions',
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        if resp.status_code != 200:
+            log_reject('deepseek_error', device_id, {'status': resp.status_code, 'body': resp.text[:200]})
+            return jsonify({'error': 'DeepSeek API error', 'status': resp.status_code}), 502
+
+        result = resp.json()
+        assistant_message = result['choices'][0]['message']['content']
+        tokens = result.get('usage', {}).get('total_tokens', 0)
+
+        # Имя агента
+        agent_name = agent_id
+        for a in agents_data.get('agents', []):
+            if a['id'] == agent_id:
+                agent_name = a.get('name', agent_id)
+                break
+
+        return jsonify({
+            'status': 'ok',
+            'participant': agent_name,
+            'agent_id': agent_id,
+            'content': assistant_message,
+            'tokens': tokens
+        })
+
+    except requests.Timeout:
+        log_reject('deepseek_timeout', device_id)
+        return jsonify({'error': 'DeepSeek timeout'}), 504
+    except Exception as e:
+        log_reject('deepseek_exception', device_id, {'error': str(e)})
+        return jsonify({'error': 'internal error'}), 500
+
 
 # ============================================================
 # === ОБЩЕЕ: вебхук ЮKassa (обрабатывает marketplace и sign) ===

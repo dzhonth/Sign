@@ -1,0 +1,803 @@
+{% extends "layout.html" %}
+{% block title %}Штаб — Eidos Universe{% endblock %}
+{% block nav_chat %}{% endblock %}
+
+{% block content %}
+
+<div class="staff-header">
+  <h1 class="page-title page-title-center">Штаб Eidos</h1>
+  <div class="staff-header-actions">
+    <span class="staff-status">● Подключено</span>
+    <button class="staff-header-btn" onclick="openHistory()">История</button>
+    <a href="/staff/logout" class="staff-logout">Выйти</a>
+  </div>
+</div>
+
+<!-- === СЕТКА 3 ОКОН === -->
+<div class="staff-grid">
+
+  <!-- ОКНО 1. ШТАБ -->
+  <section class="staff-window" data-window="staff">
+    <header class="window-header">
+      <div class="window-header-left">
+        <h2 class="window-title">Штаб</h2>
+        <span class="window-badge" id="staffBadge">11 ходов</span>
+      </div>
+      <div class="window-header-actions" id="staffNewDialog">
+        <button class="staff-act-btn staff-act-new" onclick="newDialog()">+ Новый диалог</button>
+      </div>
+      <div class="window-header-actions" id="staffActions" style="display:none;">
+        <button class="staff-act-btn staff-act-close" onclick="closeSession()">Завершить</button>
+        <button class="staff-act-btn staff-act-continue" onclick="showContinue()">Продолжить</button>
+      </div>
+    </header>
+    <div class="window-body">
+      <div class="window-messages" id="messagesStaff">
+        <div class="window-empty">
+          <p>Начните диалог — Основатель задаёт тему.</p>
+        </div>
+      </div>
+      <div class="window-input-wrap">
+        <textarea id="inputStaff" class="window-input" placeholder="Введите тему для Штаба..." rows="2"></textarea>
+        <button class="window-send" onclick="startSession()">→</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ОКНО 2. ЛИЧНОЕ -->
+  <section class="staff-window" data-window="personal">
+    <header class="window-header">
+      <div class="window-header-left">
+        <h2 class="window-title">Личное</h2>
+        <span class="window-badge">без лимитов</span>
+      </div>
+      <div class="window-header-actions">
+        <button class="staff-act-btn staff-act-close" onclick="closePersonal()">Завершить</button>
+      </div>
+    </header>
+    <div class="window-body">
+      <div class="window-messages" id="messagesPersonal">
+        <div class="window-empty">
+          <p>Обратитесь к агенту в формате: <code>*гармония, вопрос</code></p>
+          <p style="margin-top:8px; font-size:.85rem;">Доступные: <code>*пикч</code> <code>*гармония</code> <code>*архитектор</code> <code>*орбита</code> <code>*призрак</code> <code>*инженер</code> <code>*тестировщик</code> <code>*система</code></p>
+        </div>
+      </div>
+      <div class="window-input-wrap">
+        <textarea id="inputPersonal" class="window-input" placeholder="*агент, ваш вопрос..." rows="2"></textarea>
+        <button class="window-send" onclick="sendPersonal()">→</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ОКНО 3. ТЕХРАЗРАБОТКА -->
+  <section class="staff-window staff-window-wide" data-window="dev">
+    <header class="window-header">
+      <div class="window-header-left">
+        <h2 class="window-title">Техразработка</h2>
+        <span class="window-badge">Инженер + Тестировщик</span>
+      </div>
+      <div class="window-header-actions">
+        <button class="staff-act-btn staff-act-new" onclick="newDevDialog()">+ Новый диалог</button>
+        <button class="staff-act-btn staff-act-close" onclick="closeDev()">Завершить</button>
+      </div>
+    </header>
+    <div class="window-body">
+      <div class="window-messages" id="messagesDev">
+        <div class="window-empty">
+          <p>Обратитесь к агенту в формате: <code>*инженер, вопрос</code></p>
+          <p style="margin-top:8px; font-size:.85rem;">Доступные: <code>*инженер</code> <code>*тестировщик</code></p>
+        </div>
+      </div>
+      <div class="window-input-wrap">
+        <textarea id="inputDev" class="window-input" placeholder="*инженер или *тестировщик..." rows="2"></textarea>
+        <button class="window-send" onclick="sendDev()">→</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- === МОДАЛКА ИСТОРИИ === -->
+<div class="staff-modal" id="historyModal" onclick="if(event.target===this)closeHistory()">
+  <div class="staff-modal-inner">
+    <button class="staff-modal-close" onclick="closeHistory()">×</button>
+    <h2 class="staff-modal-title">История сессий</h2>
+    <div id="historyBody">
+      <p class="staff-modal-empty">Загрузка...</p>
+    </div>
+  </div>
+</div>
+
+<!-- === МОДАЛКА ПРОДОЛЖЕНИЯ === -->
+<div class="staff-modal" id="continueModal" onclick="if(event.target===this)closeContinue()">
+  <div class="staff-modal-inner staff-modal-inner-sm">
+    <button class="staff-modal-close" onclick="closeContinue()">×</button>
+    <h2 class="staff-modal-title">Продолжить диалог</h2>
+    <p style="color:#9090a8; font-size:.9rem; margin-bottom:16px;">Уточните вашу мысль — агенты продолжат обсуждение.</p>
+    <textarea id="continueInput" class="continue-input" placeholder="Ваше уточнение..." rows="3"></textarea>
+    <button class="staff-act-btn staff-act-continue continue-btn" onclick="submitContinue()">Отправить</button>
+  </div>
+</div>
+
+<!-- === ДАННЫЕ АГЕНТОВ === -->
+<script id="staff-agents-data" type="application/json">{
+  {% for agent in staff_agents %}"{{ agent.id }}": {
+    "id": {{ agent.id | tojson }},
+    "code": {{ agent.code | tojson }},
+    "name": {{ agent.name | tojson }},
+    "role": {{ agent.role | tojson }},
+    "api_provider": {{ agent.api_provider | tojson }},
+    "turn": {{ agent.turn | tojson }},
+    "avatar": {{ agent.avatar | tojson }},
+    "main_phrase": {{ agent.main_phrase | tojson }}
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+}</script>
+
+<script>
+const STAFF_AGENTS = JSON.parse(document.getElementById('staff-agents-data').textContent);
+let currentSessionId = null;
+let isRunning = false;
+
+console.log('[STAFF] agents loaded:', Object.keys(STAFF_AGENTS).length);
+
+// === ОТРИСОВКА СООБЩЕНИЯ ===
+function addStaffMessage(containerId, author, agentId, content, provider) {
+  const container = document.getElementById(containerId);
+  const empty = container.querySelector('.window-empty');
+  if (empty) empty.remove();
+
+  const isUser = author === 'Основатель';
+  const isSkipped = content && content.startsWith('(пропущен');
+
+  const msg = document.createElement('div');
+  msg.className = 'staff-msg ' + (isUser ? 'staff-msg-user' : 'staff-msg-ai');
+  if (isSkipped) msg.classList.add('staff-msg-skipped');
+
+  let apiBadge = '';
+  if (provider === 'gigachat') {
+    msg.classList.add('api-gigachat');
+    apiBadge = '<span class="api-badge api-badge-gigachat">GigaChat</span>';
+  } else if (provider === 'deepseek') {
+    msg.classList.add('api-deepseek');
+    apiBadge = '<span class="api-badge api-badge-deepseek">DeepSeek</span>';
+  }
+
+  const agent = agentId ? STAFF_AGENTS[agentId] : null;
+  const avatar = agent && agent.avatar
+    ? '<div class="staff-msg-avatar"><img src="/static/avatars/team/' + agent.avatar + '" alt="' + author + '" onerror="this.parentNode.innerHTML=\'✨\'"></div>'
+    : '<div class="staff-msg-avatar">' + (isUser ? '👤' : '✨') + '</div>';
+
+  msg.innerHTML = avatar
+    + '<div class="staff-msg-body">'
+      + '<div class="staff-msg-name">' + author + ' ' + apiBadge + '</div>'
+      + '<div class="staff-msg-content"></div>'
+    + '</div>';
+
+  container.appendChild(msg);
+  const contentEl = msg.querySelector('.staff-msg-content');
+
+  let typingPromise = Promise.resolve();
+
+  if (isSkipped) {
+    contentEl.textContent = content;
+  } else if (!isUser) {
+    typingPromise = typeMatrix(contentEl, content);
+  } else {
+    contentEl.textContent = content;
+  }
+
+  container.scrollTop = container.scrollHeight;
+  msg._typingPromise = typingPromise;
+  return msg;
+}
+
+// === МАТРИЧНЫЙ ЭФФЕКТ ===
+async function typeMatrix(el, text, speed = 10) {
+  el.textContent = '';
+  el.classList.add('matrix-typing');
+
+  const cursor = document.createElement('span');
+  cursor.className = 'matrix-cursor';
+  el.parentNode.appendChild(cursor);
+
+  for (let i = 0; i < text.length; i++) {
+    el.textContent += text[i];
+    if (i % 3 === 0) {
+      const chat = el.closest('.window-messages');
+      if (chat) chat.scrollTop = chat.scrollHeight;
+    }
+    await new Promise(r => setTimeout(r, speed));
+  }
+
+  if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+  el.classList.remove('matrix-typing');
+}
+
+// === ЗАПУСК СЕССИИ ===
+async function startSession() {
+  if (isRunning) return;
+  const input = document.getElementById('inputStaff');
+  const topic = input.value.trim();
+  if (!topic) return;
+
+  isRunning = true;
+  document.getElementById('staffActions').style.display = 'none';
+
+  // Очищаем ленту
+  const container = document.getElementById('messagesStaff');
+  container.innerHTML = '';
+
+  // Показываем тему Основателя
+  addStaffMessage('messagesStaff', 'Основатель', null, topic, null);
+  input.value = '';
+
+  try {
+    const res = await fetch('/api/staff/session', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({topic: topic})
+    });
+    const data = await res.json();
+
+    if (data.status !== 'ok') {
+      addStaffMessage('messagesStaff', 'Ошибка', null, data.error || 'Не удалось создать сессию', null);
+      isRunning = false;
+      return;
+    }
+
+    currentSessionId = data.session_id;
+    console.log('[STAFF] session:', currentSessionId, 'is_code:', data.is_code_topic);
+
+    // Запускаем цикл ходов
+    await runAllTurns();
+  } catch(e) {
+    console.error('startSession failed:', e);
+    addStaffMessage('messagesStaff', 'Ошибка', null, 'Сервер недоступен', null);
+  } finally {
+    isRunning = false;
+  }
+}
+
+// === ЦИКЛ ХОДОВ ===
+async function runAllTurns() {
+  if (!currentSessionId) return;
+
+  for (let i = 0; i < 15; i++) {
+    try {
+      const res = await fetch('/api/staff/turn/' + currentSessionId, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+      });
+      const data = await res.json();
+
+      if (data.status === 'ok') {
+        const msg = addStaffMessage('messagesStaff', data.agent_name, data.agent_id, data.content, data.api_provider);
+        // Ждём окончания печати
+        if (msg && msg._typingPromise) {
+          await msg._typingPromise;
+        }
+        // Пауза 1.5 сек — чтобы пользователь прочитал ответ
+        await new Promise(r => setTimeout(r, 1500));
+      } else if (data.status === 'awaiting_decision') {
+        // Все ходы закончены
+        document.getElementById('staffActions').style.display = 'flex';
+        addStaffMessage('messagesStaff', '⚖️ Система', null, 'Все ходы завершены. Ждём решения Основателя: [Завершить] или [Продолжить].', 'gigachat');
+        break;
+      } else {
+        // Ошибка агента — показываем и продолжаем
+        console.error('turn error:', data);
+        addStaffMessage('messagesStaff', '⚠️ Система', null, 'Агент не ответил. Продолжаем со следующего.', 'gigachat');
+        await new Promise(r => setTimeout(r, 1500));
+        // НЕ break — продолжаем цикл
+      }
+    } catch(e) {
+      console.error('turn exception:', e);
+      addStaffMessage('messagesStaff', '⚠️ Система', null, 'Сбой сети. Продолжаем.', 'gigachat');
+      await new Promise(r => setTimeout(r, 1500));
+      // НЕ break
+    }
+  }
+}
+
+// === ЗАВЕРШИТЬ СЕССИЮ ===
+async function closeSession() {
+  if (!currentSessionId) return;
+  try {
+    await fetch('/api/staff/close/' + currentSessionId, {method: 'POST'});
+    document.getElementById('staffActions').style.display = 'none';
+    addStaffMessage('messagesStaff', '✓ Система', null, 'Сессия закрыта и сохранена в истории.', 'gigachat');
+    currentSessionId = null;
+  } catch(e) {
+    console.error('closeSession failed:', e);
+  }
+}
+
+// === ПРОДОЛЖИТЬ — МОДАЛКА ===
+function showContinue() {
+  document.getElementById('continueModal').classList.add('active');
+  document.getElementById('continueInput').focus();
+}
+function closeContinue() {
+  document.getElementById('continueModal').classList.remove('active');
+}
+async function submitContinue() {
+  const comment = document.getElementById('continueInput').value.trim();
+  if (!comment || !currentSessionId) return;
+
+  document.getElementById('continueInput').value = '';
+  closeContinue();
+  document.getElementById('staffActions').style.display = 'none';
+
+  addStaffMessage('messagesStaff', 'Основатель', null, comment, null);
+
+  try {
+    await fetch('/api/staff/continue/' + currentSessionId, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({comment: comment})
+    });
+    await runAllTurns();
+  } catch(e) {
+    console.error('continue failed:', e);
+  }
+}
+
+// === ИСТОРИЯ ===
+async function openHistory() {
+  const modal = document.getElementById('historyModal');
+  const body = document.getElementById('historyBody');
+  modal.classList.add('active');
+  body.innerHTML = '<p class="staff-modal-empty">Загрузка...</p>';
+
+  try {
+    const res = await fetch('/api/staff/sessions');
+    const data = await res.json();
+    if (data.status !== 'ok' || !data.sessions.length) {
+      body.innerHTML = '<p class="staff-modal-empty">Пока нет сессий.</p>';
+      return;
+    }
+    body.innerHTML = data.sessions.map(s => {
+      const date = (s.started_at || '').slice(0, 16);
+      const statusMap = {active: 'активна', closed: 'закрыта', awaiting_decision: 'ждёт решения'};
+      const statusText = statusMap[s.status] || s.status;
+      const codeIcon = s.is_code_topic ? ' 💻' : '';
+      return `<div class="history-item" onclick="loadSession(${s.id})">
+        <div class="history-topic">${escapeHtml(s.topic)}${codeIcon}</div>
+        <div class="history-meta">${date} · ${statusText} · ход ${s.current_turn || 0}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = '<p class="staff-modal-empty">Ошибка загрузки.</p>';
+  }
+}
+function closeHistory() {
+  document.getElementById('historyModal').classList.remove('active');
+}
+
+function escapeHtml(s) {
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+// === НОВЫЙ ДИАЛОГ ===
+function newDialog() {
+  // Сброс состояния
+  currentSessionId = null;
+  isRunning = false;
+
+  // Скрываем только кнопки [Завершить] [Продолжить]
+  document.getElementById('staffActions').style.display = 'none';
+
+  // Очищаем ленту
+  const container = document.getElementById('messagesStaff');
+  container.innerHTML = '<div class="window-empty"><p>Начните диалог — Основатель задаёт тему.</p></div>';
+
+  // Фокус на ввод
+  const input = document.getElementById('inputStaff');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+
+  console.log('[STAFF] new dialog started');
+}
+
+async function loadSession(sessionId) {
+  try {
+    const res = await fetch('/api/staff/session/' + sessionId);
+    const data = await res.json();
+    if (data.status !== 'ok') return;
+
+    closeHistory();
+    currentSessionId = null;  // Не продолжаем старую — только просмотр
+    document.getElementById('staffActions').style.display = 'none';
+
+    const container = document.getElementById('messagesStaff');
+    container.innerHTML = '';
+
+    for (const m of data.messages) {
+      addStaffMessage('messagesStaff', m.author, m.agent_id, m.content, null);
+    }
+    addStaffMessage('messagesStaff', '📖 Просмотр сессии', null, 'Тема: ' + data.session.topic, null);
+    addStaffMessage('messagesStaff', '💡 Нажмите [+ Новый диалог] для начала новой сессии.', null, '', null);
+  } catch(e) {
+    console.error('loadSession failed:', e);
+  }
+}
+
+// === ЗАГЛУШКИ ДЛЯ ОКОН 2 И 3 (следующий этап) ===
+async function sendPersonal() {
+  const input = document.getElementById('inputPersonal');
+  const text = input.value.trim();
+  if (!text) return;
+
+  // Валидация: должен быть *agent
+  if (!text.startsWith('*') || !text.includes(',')) {
+    addStaffMessage('messagesPersonal', '⚠️ Система', null, 'Формат: *агент, вопрос. Например: *гармония, что думаешь?', 'gigachat');
+    return;
+  }
+
+  addStaffMessage('messagesPersonal', 'Основатель', null, text, null);
+  input.value = '';
+
+  try {
+    const res = await fetch('/api/staff/personal', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text})
+    });
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      addStaffMessage('messagesPersonal', data.agent_name, data.agent_id, data.content, data.api_provider);
+    } else {
+      addStaffMessage('messagesPersonal', '⚠️ Система', null, data.error || 'Ошибка', 'gigachat');
+    }
+  } catch(e) {
+    console.error('sendPersonal failed:', e);
+    addStaffMessage('messagesPersonal', '⚠️ Система', null, 'Сервер недоступен', 'gigachat');
+  }
+}
+
+async function closePersonal() {
+  // Закрываем текущую personal-сессию через общий эндпоинт
+  try {
+    // Получаем session_id текущей personal
+    const res = await fetch('/api/staff/personal/history');
+    const data = await res.json();
+    if (data.session_id) {
+      await fetch('/api/staff/close/' + data.session_id, {method: 'POST'});
+    }
+    // Очищаем ленту
+    document.getElementById('messagesPersonal').innerHTML =
+      '<div class="window-empty"><p>Обратитесь к агенту в формате: <code>*гармония, вопрос</code></p></div>';
+    console.log('[STAFF] personal session closed');
+  } catch(e) {
+    console.error('closePersonal failed:', e);
+  }
+}
+
+async function loadPersonalHistory() {
+  try {
+    const res = await fetch('/api/staff/personal/history');
+    const data = await res.json();
+    if (data.status !== 'ok' || !data.messages.length) return;
+
+    const container = document.getElementById('messagesPersonal');
+    container.innerHTML = '';
+    for (const m of data.messages) {
+      addStaffMessage('messagesPersonal', m.author, m.agent_id, m.content, null);
+    }
+  } catch(e) {
+    console.error('loadPersonalHistory failed:', e);
+  }
+}
+async function sendDev() {
+  const input = document.getElementById('inputDev');
+  const text = input.value.trim();
+  if (!text) return;
+
+  if (!text.startsWith('*') || !text.includes(',')) {
+    addStaffMessage('messagesDev', '⚠️ Система', null, 'Формат: *инженер, вопрос или *тестировщик, вопрос.', 'gigachat');
+    return;
+  }
+
+  addStaffMessage('messagesDev', 'Основатель', null, text, null);
+  input.value = '';
+
+  try {
+    const res = await fetch('/api/staff/dev', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text})
+    });
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      addStaffMessage('messagesDev', data.agent_name, data.agent_id, data.content, data.api_provider);
+    } else {
+      addStaffMessage('messagesDev', '⚠️ Система', null, data.error || 'Ошибка', 'gigachat');
+    }
+  } catch(e) {
+    console.error('sendDev failed:', e);
+    addStaffMessage('messagesDev', '⚠️ Система', null, 'Сервер недоступен', 'gigachat');
+  }
+}
+
+async function closeDev() {
+  try {
+    const res = await fetch('/api/staff/dev/history');
+    const data = await res.json();
+    if (data.session_id) {
+      await fetch('/api/staff/close/' + data.session_id, {method: 'POST'});
+    }
+    document.getElementById('messagesDev').innerHTML =
+      '<div class="window-empty"><p>Обратитесь к агенту в формате: <code>*инженер, вопрос</code></p><p style="margin-top:8px; font-size:.85rem;">Доступные: <code>*инженер</code> <code>*тестировщик</code></p></div>';
+    console.log('[STAFF] dev session closed');
+  } catch(e) {
+    console.error('closeDev failed:', e);
+  }
+}
+
+function newDevDialog() {
+  document.getElementById('messagesDev').innerHTML =
+    '<div class="window-empty"><p>Обратитесь к агенту в формате: <code>*инженер, вопрос</code></p><p style="margin-top:8px; font-size:.85rem;">Доступные: <code>*инженер</code> <code>*тестировщик</code></p></div>';
+  const input = document.getElementById('inputDev');
+  if (input) { input.value = ''; input.focus(); }
+  console.log('[STAFF] new dev dialog');
+}
+
+// === Enter — отправить ===
+document.getElementById('inputStaff').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startSession(); }
+});
+document.getElementById('inputPersonal').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPersonal(); }
+});
+document.getElementById('inputDev').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDev(); }
+});
+</script>
+
+<style>
+/* === ХЕДЕР === */
+.staff-header{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:24px; flex-wrap:wrap; gap:16px;
+}
+.staff-header-actions{
+  display:flex; gap:12px; align-items:center;
+  font-size:.85rem;
+}
+.staff-status{ color:var(--emerald, #00ff88); letter-spacing:1px; }
+.staff-header-btn{
+  background:transparent; color:var(--gold, #ffd700);
+  border:1px solid var(--gold-dim, #ffd70044);
+  padding:6px 14px; border-radius:60px;
+  font-size:.8rem; letter-spacing:1px; text-transform:uppercase;
+  cursor:pointer; transition:all .3s;
+}
+.staff-header-btn:hover{ border-color:var(--gold, #ffd700); box-shadow:0 0 16px rgba(255,215,0,.3); }
+.staff-logout{
+  color:#9090a8; text-decoration:none;
+  padding:6px 14px; border:1px solid var(--border);
+  border-radius:60px; transition:all .3s;
+}
+.staff-logout:hover{ color:var(--gold, #ffd700); border-color:var(--gold-dim, #ffd70044); }
+
+/* === СЕТКА === */
+.staff-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+.staff-window{
+  background:rgba(18,18,30,.5);
+  border:1px solid var(--border);
+  border-radius:20px; overflow:hidden;
+  display:flex; flex-direction:column; min-height:420px;
+}
+.staff-window-wide{ grid-column:1 / -1; min-height:340px; }
+.window-header{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 20px; background:rgba(13,13,24,.6);
+  border-bottom:1px solid var(--border);
+  gap:12px; flex-wrap:wrap;
+}
+.window-header-left{ display:flex; align-items:center; gap:12px; }
+.window-title{
+  font-family:'Orbitron', sans-serif; font-size:.95rem;
+  letter-spacing:3px; color:var(--gold, #ffd700);
+  text-transform:uppercase; margin:0;
+}
+.window-badge{
+  font-size:.68rem; color:#8888aa;
+  letter-spacing:1.5px; text-transform:uppercase;
+  padding:3px 10px; border:1px solid var(--border); border-radius:20px;
+}
+.window-header-actions{ display:flex; gap:8px; }
+.staff-act-btn{
+  padding:6px 14px; border-radius:60px;
+  font-size:.75rem; letter-spacing:1px; text-transform:uppercase;
+  cursor:pointer; transition:all .3s; font-family:'Orbitron', sans-serif;
+  border:1px solid; background:transparent;
+}
+.staff-act-close{
+  color:var(--emerald, #00ff88);
+  border-color:rgba(0,255,136,.4);
+}
+.staff-act-close:hover{ background:rgba(0,255,136,.1); box-shadow:0 0 16px rgba(0,255,136,.4); }
+.staff-act-continue{
+  color:var(--gold, #ffd700);
+  border-color:var(--gold-dim, #ffd70044);
+}
+.staff-act-continue:hover{ background:rgba(255,215,0,.08); box-shadow:0 0 16px rgba(255,215,0,.3); }
+.staff-act-new{
+  color:#00d4ff;
+  border-color:rgba(0,212,255,.4);
+}
+.staff-act-new:hover{ background:rgba(0,212,255,.1); box-shadow:0 0 16px rgba(0,212,255,.4); }
+
+.window-body{ flex:1; display:flex; flex-direction:column; }
+.window-messages{
+  flex:1; overflow-y:auto; padding:16px 20px;
+  display:flex; flex-direction:column; gap:14px;
+  max-height:400px;
+}
+.window-empty{
+  text-align:center; color:#6666aa; font-style:italic;
+  padding:40px 20px; font-size:.9rem;
+}
+.window-empty code{
+  background:rgba(0,255,136,.1); color:var(--emerald, #00ff88);
+  padding:1px 6px; border-radius:4px; font-size:.85rem;
+}
+.window-input-wrap{
+  display:flex; gap:10px; padding:12px 16px;
+  border-top:1px solid var(--border);
+}
+.window-input{
+  flex:1; background:#0d0d18; border:1px solid var(--border);
+  border-radius:10px; padding:10px 14px;
+  color:#d0d0e0; font-family:inherit; font-size:.88rem;
+  resize:vertical; min-height:44px; max-height:120px;
+  outline:none; transition:border-color .3s;
+}
+.window-input:focus{ border-color:var(--emerald, #00ff88); }
+.window-send{
+  width:44px; height:44px; flex-shrink:0;
+  background:linear-gradient(135deg, #00ff88, #00d4ff);
+  color:#0a0a0f; border:none;
+  border-radius:10px; font-size:1.2rem; font-weight:700;
+  cursor:pointer; transition:all .3s;
+}
+.window-send:hover{ box-shadow:0 0 20px rgba(0,255,136,.5); }
+
+/* === СООБЩЕНИЯ === */
+.staff-msg{
+  display:flex; gap:10px; align-items:flex-start;
+  animation:fadeIn .3s;
+}
+.staff-msg-skipped{ opacity:.5; }
+.staff-msg-avatar{
+  width:36px; height:36px; min-width:36px; border-radius:50%;
+  overflow:hidden; border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 30% 30%, rgba(0,255,136,.15), #0a0a0f);
+  font-size:1.2rem;
+}
+.staff-msg-avatar img{ width:100%; height:100%; object-fit:cover; }
+.staff-msg-body{ flex:1; min-width:0; }
+.staff-msg-name{
+  font-size:.72rem; font-weight:600;
+  letter-spacing:1.5px; text-transform:uppercase;
+  margin-bottom:4px; display:flex; align-items:center; gap:8px;
+  flex-wrap:wrap;
+}
+.staff-msg-content{
+  font-size:.88rem; line-height:1.6;
+  background:rgba(13,13,24,.7);
+  border:1px solid var(--border);
+  border-radius:10px; padding:10px 14px;
+  color:#d0d0e0;
+  word-wrap:break-word;
+}
+.api-badge{
+  font-size:.6rem; padding:2px 8px; border-radius:20px;
+  letter-spacing:1px; font-weight:700;
+}
+.api-badge-gigachat{ background:rgba(0,255,136,.12); color:#00ff88; border:1px solid rgba(0,255,136,.3); }
+.api-badge-deepseek{ background:rgba(91,168,255,.12); color:#5ba8ff; border:1px solid rgba(91,168,255,.3); }
+
+.api-gigachat .staff-msg-name{ color:#00ff88; }
+.api-gigachat .staff-msg-content{ border-color:rgba(0,255,136,.15); }
+.api-deepseek .staff-msg-name{ color:#5ba8ff; }
+.api-deepseek .staff-msg-content{ border-color:rgba(91,168,255,.15); }
+.staff-msg-user .staff-msg-name{ color:var(--gold, #ffd700); }
+.staff-msg-user .staff-msg-content{
+  background:rgba(255,215,0,.05);
+  border-color:rgba(255,215,0,.2);
+}
+
+/* === МАТРИЧНЫЙ ЭФФЕКТ === */
+.staff-msg-content.matrix-typing{
+  color:var(--emerald, #00ff88);
+  text-shadow:0 0 8px rgba(0,255,136,.6), 0 0 16px rgba(0,255,136,.3);
+}
+.matrix-cursor{
+  display:inline-block; width:6px; height:1em;
+  background:var(--emerald, #00ff88);
+  box-shadow:0 0 8px var(--emerald, #00ff88);
+  margin-left:2px; animation:matrixBlink .7s infinite;
+  vertical-align:-2px;
+}
+@keyframes matrixBlink{ 0%,50%{opacity:1;} 51%,100%{opacity:0;} }
+@keyframes fadeIn{ from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:translateY(0);} }
+
+/* === МОДАЛКИ === */
+.staff-modal{
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.85); backdrop-filter:blur(20px);
+  z-index:1000; justify-content:center; align-items:center;
+  padding:20px; opacity:0; transition:opacity .3s;
+}
+.staff-modal.active{ display:flex; opacity:1; }
+.staff-modal-inner{
+  background:linear-gradient(160deg,#12121e,#0d0d18);
+  border:1px solid var(--border); border-radius:24px;
+  max-width:720px; width:100%; max-height:85vh; overflow-y:auto;
+  padding:32px 28px 24px; position:relative;
+  box-shadow:0 30px 100px rgba(0,0,0,.9);
+}
+.staff-modal-inner-sm{ max-width:480px; }
+.staff-modal-close{
+  position:absolute; top:14px; right:20px;
+  background:none; border:none; color:#8888aa;
+  font-size:1.8rem; cursor:pointer; transition:all .3s;
+}
+.staff-modal-close:hover{ color:var(--gold, #ffd700); transform:rotate(90deg); }
+.staff-modal-title{
+  font-family:'Orbitron', sans-serif;
+  font-size:1.2rem; color:var(--gold, #ffd700);
+  letter-spacing:3px; text-transform:uppercase;
+  margin:0 0 20px;
+}
+.staff-modal-empty{
+  text-align:center; color:#6666aa; font-style:italic; padding:40px 20px;
+}
+.history-item{
+  background:rgba(13,13,24,.6); border:1px solid var(--border);
+  border-radius:12px; padding:14px 18px; margin-bottom:10px;
+  cursor:pointer; transition:all .3s;
+}
+.history-item:hover{
+  border-color:var(--emerald, #00ff88);
+  box-shadow:0 0 16px rgba(0,255,136,.2);
+}
+.history-topic{
+  color:#e0e0f0; font-size:.9rem; margin-bottom:4px;
+  overflow:hidden; text-overflow:ellipsis;
+}
+.history-meta{ color:#8888aa; font-size:.75rem; letter-spacing:1px; }
+
+.continue-input{
+  width:100%; background:#0d0d18; border:1px solid var(--border);
+  border-radius:12px; padding:12px 16px;
+  color:#d0d0e0; font-family:inherit; font-size:.9rem;
+  resize:vertical; min-height:80px; margin-bottom:16px;
+  outline:none; transition:border-color .3s;
+}
+.continue-input:focus{ border-color:var(--emerald, #00ff88); }
+.continue-btn{ width:100%; padding:12px; font-size:.85rem; }
+
+/* === МОБИЛЬНАЯ === */
+@media (max-width:900px){
+  .staff-grid{ grid-template-columns:1fr; }
+  .staff-window-wide{ grid-column:auto; }
+  .staff-header-actions{ width:100%; justify-content:flex-end; }
+}
+</style>
+
+{% endblock %}

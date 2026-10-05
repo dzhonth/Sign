@@ -5,6 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Eidos Universe{% endblock %}</title>
 <style>
+/* === ЛОКАЛЬНЫЕ ШРИФТЫ === */
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/orbitron-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/orbitron-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/static/fonts/orbitron-800.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/inter-500.woff2') format('woff2');
+}
+
 :root{
   --gold:#ffd700; --gold-dim:#ffd70044;
   --emerald:#00ff88; --emerald-dim:#00ff8844;
@@ -16,7 +53,7 @@
 html,body{overflow-x:hidden}
 body{
   background:var(--bg); color:var(--text);
-  font-family:'Segoe UI',system-ui,sans-serif;
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
   min-height:100vh; padding:0;
   background-image:radial-gradient(ellipse at 50% 0%, #1a1a0a 0%, #0a0a0f 70%);
 }
@@ -82,14 +119,16 @@ body{
 
 /* === ОБЩИЕ ЗАГОЛОВКИ === */
 h1.page-title{
+  font-family:'Orbitron','Segoe UI',sans-serif;
   font-size:clamp(1.8rem,4vw,2.6rem);
-  font-weight:200; letter-spacing:8px;
+  font-weight:600; letter-spacing:8px;
   color:var(--gold); margin-bottom:24px;
   text-transform:uppercase;
   text-shadow:0 0 40px var(--gold-dim);
 }
 h2.section{
-  font-size:1.3rem; font-weight:300;
+  font-family:'Orbitron','Segoe UI',sans-serif;
+  font-size:1.3rem; font-weight:600;
   letter-spacing:4px; color:var(--gold);
   margin:36px 0 16px;
   text-transform:uppercase;
@@ -146,6 +185,7 @@ table.doc-table tr:hover td{background:rgba(0,255,136,.03);}
     <a href="/lab" class="nav-link {% block nav_lab %}{% endblock %}">Lab</a>
     <a href="/team" class="nav-link {% block nav_team %}{% endblock %}">Team</a>
     <a href="/city" class="nav-link {% block nav_city %}{% endblock %}">City</a>
+    <a href="/chat" class="nav-link {% block nav_chat %}{% endblock %}">Chat</a>
   </div>
 </nav>
 
